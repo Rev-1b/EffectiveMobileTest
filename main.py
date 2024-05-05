@@ -1,3 +1,5 @@
+from handlers import SetLanguageHandler, StartHandler, ShowTutorialHandler, ChooseCommandHandler
+from languages import eng_lang
 
 
 def run(tutorial_steps):
@@ -14,3 +16,8 @@ def run(tutorial_steps):
         choose_command_handler = ChooseCommandHandler(language, tutorial_steps)
         command_class = choose_command_handler.operate()(language)
         command_class.operate(language)
+
+
+if __name__ == '__main__':
+    tutorial = ()
+    run(tutorial)
