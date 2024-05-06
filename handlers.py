@@ -1,8 +1,8 @@
 from abc import ABC, abstractmethod
+from datetime import datetime
 
 import pandas as pd
 from tabulate import tabulate
-from datetime import datetime
 
 from languages import get_lang_codes, registered_languages
 
@@ -18,19 +18,16 @@ class AbstractHandler(ABC):
     def operate(self):
         pass
 
-    def _validate_input(self, *args, **kwargs) -> str:
+    def _validate_input(self, message: str, options=None) -> str:
         """
 
         Requires user to enter the correct command until it gets it.
 
         """
-        if len(args) < 2:
 
+        input_command = input(message).strip()
 
-        initial_message, options = args[:2]
-        input_command = input(initial_message).strip()
-
-        while input_command not in options:
+        while options and input_command not in options:
             error_message = self.language.get('notfound_command', '__ERROR__')
             print(error_message.format(command=input_command, options=', '.join(options)))
 
@@ -59,7 +56,7 @@ class StartHandler(AbstractHandler):
 
 
 class ShowTutorialHandler(AbstractHandler):
-    def __init__(self, language: dict[str, str], tutorial_steps: list[str]):
+    def __init__(self, language: dict[str, str], tutorial_steps: tuple[str]):
         super().__init__(language)
         self.tutorial_steps = tutorial_steps
 
@@ -81,7 +78,7 @@ class ShowTutorialHandler(AbstractHandler):
 
 
 class ChooseCommandHandler(AbstractHandler):
-    def __init__(self, language: dict[str, str], commands: dict[str]):
+    def __init__(self, language: dict[str, str], commands: dict[str, callable]):
         super().__init__(language)
         self.commands = commands
 
@@ -93,7 +90,7 @@ class ChooseCommandHandler(AbstractHandler):
 
 
 class ShowStatisticHandler(AbstractHandler):
-    def __init__(self, language: dict[str, str], database_fields: dict[str, str]):
+    def __init__(self, language: dict[str, str], database_fields: dict[str, dict]):
         super().__init__(language)
         self.database_fields = database_fields
 
@@ -115,12 +112,22 @@ class ShowStatisticHandler(AbstractHandler):
 
         # print('\n' + tabulate(df, headers=['ID', *self.database_fields.values()]), end='\n\n')
 
-        b = df.groupby('type').amount.sum()
-        print(b['income'])
+        income, outcome = df.groupby('type').amount.sum()
+        print(f"Текущий баланс: {income - outcome}\n\n")
+
+        def pprint(obj):
+            print(
+                'Дата: {date}\n'
+                'Категория: {type}\n'
+                'Сумма: {amount}\n'
+                'Описание: {descr}\n'.format(**obj)
+            )
+
+        df.loc[df.type == 'income'].apply(pprint, axis=1)
 
 
 class AddNoteHandler(AbstractHandler):
-    def __init__(self, language: dict[str, str], database_fields: dict[str, str]):
+    def __init__(self, language: dict[str, str], database_fields: dict[str, dict]):
         super().__init__(language)
         self.database_fields = database_fields
 
@@ -137,41 +144,57 @@ class AddNoteHandler(AbstractHandler):
         print(self.language.get('chosen_add_note', '__ERROR__'))
         entity = {}
 
-        for field, field_name in self.database_fields.items():
+        for field, field_attrs in self.database_fields.items():
+
             if field == 'date':
                 field_value = datetime.now().strftime('%Y-%m-%d')
             else:
-                message = self.language.get('input_note_data', '__ERROR__').format(field_name=field_name)
-                field_value = self._validate_input(message, field)
-            entity[field] = field_value
+                message = self.language.get('input_note_data', '__ERROR__').format(field_name=field_attrs['name'])
+                field_value = self._validate_input(message, field_attrs['valid_values'])
 
+            entity[field] = field_value
         df = pd.read_csv('database.csv', index_col='pk')
         df.loc[len(df.index)] = entity.values()
 
         print(self.language.get('note_add_success', '__ERROR__'))
-        print(tabulate(df.tail(1), headers=['ID', *self.database_fields.values()]), end='\n\n')
+        print(tabulate(df.tail(1), headers=['ID', *map(lambda val: val['name'], self.database_fields.values())]),
+              end='\n\n')
 
         df.to_csv('database.csv')
 
-    def _validate_input(self, *args, **kwargs) -> str:
+
+class FindNoteHandler(AbstractHandler):
+    def operate(self):
+        pass
+
 
 
 
 database_fields = {
-    'date': 'Date',
-    'type': 'Operation type',
-    'amount': 'Amount',
-    'descr': 'Description',
+    'date': {
+        'name': 'Date',
+        'operations': ('==', '>', '>=', '<', '<='),
+        'valid_values': None
+    },
+    'type': {
+        'name': 'Transaction type',
+        'operations': ('==',),
+        'valid_values': ('income', 'outcome',)
+    },
+    'amount': {
+        'name': 'Amount',
+        'operations': ('==',),
+        'valid_values': None
+    },
+    'descr': {
+        'name': 'Description',
+        'operations': ('==',),
+        'valid_values': None
+    },
 }
 
 # At the moment, filtering fields is only available by the equal sign, however,
 # to add new operations it is enough to register them in this dictionary
-allowed_query_operations = {
-    'date': ('==',),
-    'type': ('==',),
-    'amount': ('==',),
-    'descr': ('==',),
-}
 
 # All commands specified in this collection become available to the user in the main menu
 commands = {
