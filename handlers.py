@@ -224,9 +224,6 @@ class GetQueryMixin(AbstractHandler):
         return f'{main_arg}{operation}"{sub_arg}"'
 
 
-
-
-
 class FindNoteHandler(AbstractHandler):
     def operate(self):
         pass
