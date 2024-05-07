@@ -1,5 +1,3 @@
-from abc import ABC, abstractmethod
-from datetime import datetime
 from typing import Optional
 
 import pandas as pd
@@ -19,9 +17,7 @@ class AbstractHandler(ABC):
     def operate(self):
         pass
 
-    def _validate_entered(self, message: str,
-                          validator: Optional[callable] = None,
-                          err_message_key: str = 'notfound_command') -> str:
+    def _validate_entered(self, message: str, validator: Optional[callable] = None) -> str:
         """
 
         Requires user to enter the correct command until it gets it.
@@ -30,9 +26,9 @@ class AbstractHandler(ABC):
 
         user_entered = input(message).strip()
 
-        while validator and not validator(user_entered):
-            error_message = self.language.get(err_message_key)
-            print(error_message.format(command=user_entered, options=', '.join(options)))
+        while validator and not validator.validate(user_entered):
+            error_message = self.language.get(validator.err_code)
+            print(error_message)
 
             user_entered = input(self.language.get('try_again')).strip()
 
@@ -156,26 +152,28 @@ class AddNoteHandler(AbstractHandler, PrettyPrintMixin):
         entity = {}
 
         for field, field_attrs in self.database_fields.items():
+            message = self.language.get('input_note_data').format(
+                field_name=self.language.get(field)
+            )
 
-            if field == 'date':
-                field_value = datetime.now().strftime('%Y-%m-%d')
-            else:
-                message = self.language.get('input_note_data').format(
-                    field_name=self.language.get(field)
+            validator = (field_attrs['validator_class'])
+
+            if validator:
+                validator = validator(
+                    self.language.get(field_attrs['validator_arg_code'])
                 )
 
-                validator = field_attrs['validator']()
-                field_value = self._validate_entered(
-                    message, self.language.get(field_attrs['valid_values_key'])
-                )
-
+            field_value = self._validate_entered(message, validator)
             entity[field] = field_value
 
         df = pd.read_csv('database.csv', index_col='pk')
         df.loc[len(df.index)] = entity.values()
 
         print(self.language.get('note_add_success'))
-        df.tail(1).apply(self.pprint, axis=1)
+
+        df.tail(1).apply(
+            self.pprint, fields=self.database_fields, language=self.language, axis=1
+        )
 
         df.to_csv('database.csv')
 
@@ -203,7 +201,8 @@ class GetQueryMixin(AbstractHandler):
             queries.append(query)
 
             message = self.language.get('add_query')
-            further = self._validate_entered(message, options=['y', 'n'])
+            validator = ValueInValidator(options=['y', 'n'])
+            further = self._validate_entered(message, validator)
 
         union_query = f'({") & (".join(queries)})'
         return union_query
@@ -218,26 +217,38 @@ class GetQueryMixin(AbstractHandler):
 
         """
 
+        main_validator = ValueInValidator(
+            options=self.database_fields.keys(),
+            err_code='first_arg_err'
+        )
         main_arg = self._validate_entered(
             message=self.language.get('chose_first_arg').format(
                 options=', '.join(self.database_fields.keys())
             ),
-            options=list(self.database_fields.keys()),
-            err_message_key='first_arg_err'
+            validator=main_validator
         )
 
+        field_attrs = self.database_fields[main_arg]
+
+        oper_validator = ValueInValidator(
+            options=field_attrs['operations'],
+            err_code='operator_err'
+        )
         operation = self._validate_entered(
             message=self.language.get('chose_operator').format(
-                options=', '.join(self.database_fields[main_arg]['operations'])
+                options=', '.join(field_attrs['operations'])
             ),
-            options=self.database_fields[main_arg]['operations'],
-            err_message_key='operator_err'
+            validator=oper_validator
         )
+
+        sub_validator = field_attrs['validator_class'](
+            options=field_attrs['validator_arg_code'],
+            err_code='sub_arg_err'
+        ) if field_attrs['validator_class'] else None
 
         sub_arg = self._validate_entered(
             message=self.language.get('chose_sub_arg'),
-            options=None,
-            err_message_key='sub_arg_err'
+            validator=sub_validator
         )
 
         return self.database_fields[main_arg]['query_form'].format(
@@ -297,7 +308,7 @@ class ChangeNotesHandler(FindNotesHandler):
         result = {}
         for field in managed_data:
             field_value = input(self.language.get('change_field').format(
-                field_name=self.database_fields[field][self.language.get('name_key')]
+                field_name=self.language.get(field)
             ))
             result[field] = field_value
 
@@ -308,21 +319,25 @@ database_fields = {
     'date': {
         'operations': ('==', '>', '>=', '<', '<='),
         'validator_class': RegExValidator,
+        'validator_arg_code': 'date_regex',
         'query_form': '{main_arg}{operation}"{sub_arg}"',
     },
     'type': {
         'operations': ('==',),
         'validator_class': ValueInValidator,
+        'validator_arg_code': 'values_for_type',
         'query_form': '{main_arg}{operation}"{sub_arg}"',
     },
     'amount': {
         'operations': ('==', '>', '>=', '<', '<='),
         'validator_class': None,
+        'validator_arg_code': None,
         'query_form': '{main_arg}{operation}{sub_arg}',
     },
     'descr': {
         'operations': ('==',),
         'validator_class': None,
+        'validator_arg_code': None,
         'query_form': '{main_arg}{operation}"{sub_arg}"',
     },
 }
