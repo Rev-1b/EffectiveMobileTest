@@ -9,6 +9,6 @@ class PrettyPrintMixin:
             if field_attrs['valid_values_key'] is not None:
                 field_value = language.get(field_attrs['valid_values_key']).get(field_value)
 
-            print(f"{language.get(field_attrs['name_key'])}: {field_value}")
+            print(f"{language.get(field)}: {field_value}")
 
         print('\n------------------------------\n')

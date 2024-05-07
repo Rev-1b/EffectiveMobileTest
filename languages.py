@@ -89,14 +89,14 @@ ru_lang = {
     'change_field': 'Введите новое значение для поля "{field_name}"\n ... ',
 
     # -------------------------------------- Database Fields info ----------------------------------------------
-    'date_name': 'Дата',
+    'date': 'Дата',
 
-    'type_name': 'Категория',
+    'type': 'Категория',
     'values_for_type': {'income': 'Доход', 'outcome': 'Расход'},
 
-    'amount_name': 'Сумма',
+    'amount': 'Сумма',
 
-    'descr_name': 'Описание',
+    'descr': 'Описание',
 
     'exit_message': 'Хорошего дня!',
 }

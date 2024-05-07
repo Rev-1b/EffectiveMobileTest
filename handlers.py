@@ -1,10 +1,12 @@
 from abc import ABC, abstractmethod
 from datetime import datetime
+from typing import Optional
 
 import pandas as pd
 
 from languages import get_lang_codes, registered_languages
 from mixins import PrettyPrintMixin
+from validators import *
 
 pd.set_option('display.max_columns', None)
 
@@ -18,7 +20,7 @@ class AbstractHandler(ABC):
         pass
 
     def _validate_entered(self, message: str,
-                          options: [iter, None] = None,
+                          validator: Optional[callable] = None,
                           err_message_key: str = 'notfound_command') -> str:
         """
 
@@ -28,7 +30,7 @@ class AbstractHandler(ABC):
 
         user_entered = input(message).strip()
 
-        while options and user_entered not in options:
+        while validator and not validator(user_entered):
             error_message = self.language.get(err_message_key)
             print(error_message.format(command=user_entered, options=', '.join(options)))
 
@@ -42,7 +44,8 @@ class SetLanguageHandler(AbstractHandler):
         lang_codes = get_lang_codes()
         message = self.language.get('select_language').format(options=lang_codes)
 
-        chosen_code = self._validate_entered(message, lang_codes)
+        validator = ValueInValidator(options=lang_codes)
+        chosen_code = self._validate_entered(message, validator)
 
         return registered_languages.get(chosen_code)
 
@@ -51,7 +54,9 @@ class StartHandler(AbstractHandler):
     def operate(self):
         options = {'y': True, 'n': False}
         message = self.language.get('start')
-        show_tutorial = self._validate_entered(message, list(options.keys()))
+
+        validator = ValueInValidator(options=list(options.keys()))
+        show_tutorial = self._validate_entered(message, validator)
 
         return options[show_tutorial]
 
@@ -72,7 +77,9 @@ class ShowTutorialHandler(AbstractHandler):
         for step in self.tutorial_steps:
             message = self.language.get(step)
             options = {'y': True, 'n': False}
-            further = self._validate_entered(message, list(options.keys()))
+
+            validator = ValueInValidator(options=list(options.keys()))
+            further = self._validate_entered(message, validator)
 
             if not options[further]:
                 break
@@ -84,8 +91,11 @@ class ChooseCommandHandler(AbstractHandler):
         self.commands = commands
 
     def operate(self):
-        message = self.language.get('require_input').format(commands=', '.join(self.commands.keys()))
-        command = self._validate_entered(message, self.commands.keys())
+        message = self.language.get('require_input').format(
+            commands=', '.join(self.commands.keys())
+        )
+        validator = ValueInValidator(options=self.commands.keys())
+        command = self._validate_entered(message, validator)
 
         return self.commands.get(command)
 
@@ -151,8 +161,10 @@ class AddNoteHandler(AbstractHandler, PrettyPrintMixin):
                 field_value = datetime.now().strftime('%Y-%m-%d')
             else:
                 message = self.language.get('input_note_data').format(
-                    field_name=self.language.get(field_attrs['name_key'])
+                    field_name=self.language.get(field)
                 )
+
+                validator = field_attrs['validator']()
                 field_value = self._validate_entered(
                     message, self.language.get(field_attrs['valid_values_key'])
                 )
@@ -294,27 +306,23 @@ class ChangeNotesHandler(FindNotesHandler):
 
 database_fields = {
     'date': {
-        'name_key': 'date_name',
         'operations': ('==', '>', '>=', '<', '<='),
-        'valid_values_key': None,
+        'validator_class': RegExValidator,
         'query_form': '{main_arg}{operation}"{sub_arg}"',
     },
     'type': {
-        'name_key': 'type_name',
         'operations': ('==',),
-        'valid_values_key': 'values_for_type',
+        'validator_class': ValueInValidator,
         'query_form': '{main_arg}{operation}"{sub_arg}"',
     },
     'amount': {
-        'name_key': 'amount_name',
         'operations': ('==', '>', '>=', '<', '<='),
-        'valid_values_key': None,
+        'validator_class': None,
         'query_form': '{main_arg}{operation}{sub_arg}',
     },
     'descr': {
-        'name_key': 'descr_name',
         'operations': ('==',),
-        'valid_values_key': None,
+        'validator_class': None,
         'query_form': '{main_arg}{operation}"{sub_arg}"',
     },
 }
