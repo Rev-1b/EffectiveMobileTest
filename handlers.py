@@ -269,7 +269,9 @@ class FindNotesHandler(GetQueryMixin, PrettyPrintMixin):
         if not len(filtered_df):
             print(self.language.get('bad_query'))
         else:
-            filtered_df.apply(self.pprint, axis=1)
+            filtered_df.apply(
+                self.pprint, fields=self.database_fields, language=self.language, axis=1
+            )
             return df, query
 
 
@@ -310,6 +312,8 @@ class ChangeNotesHandler(FindNotesHandler):
             field_value = input(self.language.get('change_field').format(
                 field_name=self.language.get(field)
             ))
+            if field_value.isdigit():
+                field_value = int(field_value)
             result[field] = field_value
 
         return result
