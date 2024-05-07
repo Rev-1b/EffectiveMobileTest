@@ -7,7 +7,15 @@ from tabulate import tabulate
 from languages import get_lang_codes, registered_languages
 
 pd.set_option('display.max_columns', None)
-PAGINATE_BY = 5
+
+
+def pprint(obj):
+    print(
+        'Дата: {date}\n'
+        'Категория: {type}\n'
+        'Сумма: {amount}\n'
+        'Описание: {descr}\n'.format(**obj)
+    )
 
 
 class AbstractHandler(ABC):
@@ -117,14 +125,6 @@ class ShowStatisticHandler(AbstractHandler):
         income, outcome = df.groupby('type').amount.sum()
         print(f"Текущий баланс: {income - outcome}\n\n")
 
-        def pprint(obj):
-            print(
-                'Дата: {date}\n'
-                'Категория: {type}\n'
-                'Сумма: {amount}\n'
-                'Описание: {descr}\n'.format(**obj)
-            )
-
         df.loc[df.type == 'income'].apply(pprint, axis=1)
 
 
@@ -171,7 +171,7 @@ class GetQueryMixin(AbstractHandler):
         self.database_fields = database_fields
 
     def operate(self):
-        pass
+        print(self.get_full_query())
 
     def get_full_query(self):
         """
@@ -181,9 +181,9 @@ class GetQueryMixin(AbstractHandler):
 
         """
         queries = []
-        further = True
+        further = 'y'
 
-        while further:
+        while further == 'y':
             query = self._validate_entered_query()
             queries.append(query)
 
@@ -204,7 +204,8 @@ class GetQueryMixin(AbstractHandler):
         """
 
         main_arg = self._validate_entered(
-            message=self.language.get('chose_first_arg', '__ERROR__'),
+            message=self.language.get('chose_first_arg', '__ERROR__').format(
+                options=', '.join(self.database_fields.keys())),
             options=list(self.database_fields.keys()),
             err_message_key='first_arg_err'
         )
@@ -221,10 +222,28 @@ class GetQueryMixin(AbstractHandler):
             err_message_key='sub_arg_err'
         )
 
-        return f'{main_arg}{operation}"{sub_arg}"'
+        return self.database_fields[main_arg]['query_form'].format(
+            main_arg=main_arg,
+            operation=operation,
+            sub_arg=sub_arg
+        )
 
 
-class FindNoteHandler(AbstractHandler):
+class FindNoteHandler(GetQueryMixin):
+    def operate(self):
+        print(self.language.get('chosen_find_notes', '__ERROR__'))
+        query = self.get_full_query()
+
+        df = pd.read_csv('database.csv')
+        filtered_df = df.loc[df.query(query).index]
+
+        if not len(filtered_df):
+            print(self.language.get('bad_query', '__ERROR__'))
+        else:
+            filtered_df.apply(pprint, axis=1)
+
+
+class ChangeNotesHandler(GetQueryMixin):
     def operate(self):
         pass
 
@@ -233,22 +252,26 @@ database_fields = {
     'date': {
         'name': 'Date',
         'operations': ('==', '>', '>=', '<', '<='),
-        'valid_values': None
+        'valid_values': None,
+        'query_form': '{main_arg}{operation}"{sub_arg}"',
     },
     'type': {
         'name': 'Transaction type',
         'operations': ('==',),
-        'valid_values': ('income', 'outcome',)
+        'valid_values': ('income', 'outcome',),
+        'query_form': '{main_arg}{operation}"{sub_arg}"',
     },
     'amount': {
         'name': 'Amount',
-        'operations': ('==',),
-        'valid_values': None
+        'operations': ('==', '>', '>=', '<', '<='),
+        'valid_values': None,
+        'query_form': '{main_arg}{operation}{sub_arg}',
     },
     'descr': {
         'name': 'Description',
         'operations': ('==',),
-        'valid_values': None
+        'valid_values': None,
+        'query_form': '{main_arg}{operation}"{sub_arg}"',
     },
 }
 
@@ -260,7 +283,7 @@ commands = {
     'help': ShowTutorialHandler,
     'sh': ShowStatisticHandler,
     'add': AddNoteHandler,
-    # 'find_notes': find_notes_handler,
+    'gk': FindNoteHandler,
     # 'edit_notes': edit_notes_handler,
     # 'exit': exit_handler,
 }
