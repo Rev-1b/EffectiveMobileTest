@@ -112,16 +112,16 @@ class ShowStatisticHandler(AbstractHandler, PrettyPrintMixin):
             return
 
         income, outcome = df.groupby('type').amount.sum()
-        print(f'Текущий баланс: {income - outcome}')
-        print(f'Доход: {income}')
-        print(f'Расход: {outcome}\n')
 
-        print('---------- СПИСОК ВСЕХ ТРАНЗАКЦИЙ ПО КАТЕГОРИЯМ ------------\n')
+        print(self.language.get('statistic').format(
+            summary=income - outcome, income=income, outcome=outcome
+        ))
 
-        def _print_by_type( transaction_type: str, message_key: str):
+        def _print_by_type(transaction_type: str, message_key: str):
             print(self.language.get(message_key))
-            df.loc[df.type == transaction_type].apply(self.pprint, fields=self.database_fields, language=self.language,
-                                                      axis=1)
+            df.loc[df.type == transaction_type].apply(
+                self.pprint, fields=self.database_fields, language=self.language, axis=1
+            )
 
         for transaction, message in {'income': 'income_message', 'outcome': 'outcome_message'}.items():
             _print_by_type(transaction, message)
@@ -151,8 +151,11 @@ class AddNoteHandler(AbstractHandler, PrettyPrintMixin):
                 field_value = datetime.now().strftime('%Y-%m-%d')
             else:
                 message = self.language.get('input_note_data').format(
-                    field_name=field_attrs[self.language.get('name_key')])
-                field_value = self._validate_entered(message, field_attrs['valid_values'])
+                    field_name=self.language.get(field_attrs['name_key'])
+                )
+                field_value = self._validate_entered(
+                    message, self.language.get(field_attrs['valid_values_key'])
+                )
 
             entity[field] = field_value
 
@@ -205,7 +208,8 @@ class GetQueryMixin(AbstractHandler):
 
         main_arg = self._validate_entered(
             message=self.language.get('chose_first_arg').format(
-                options=', '.join(self.database_fields.keys())),
+                options=', '.join(self.database_fields.keys())
+            ),
             options=list(self.database_fields.keys()),
             err_message_key='first_arg_err'
         )
@@ -281,8 +285,8 @@ class ChangeNotesHandler(FindNotesHandler):
         result = {}
         for field in managed_data:
             field_value = input(self.language.get('change_field').format(
-                field_name=self.database_fields[field][self.language.get('name_key')])
-            )
+                field_name=self.database_fields[field][self.language.get('name_key')]
+            ))
             result[field] = field_value
 
         return result
