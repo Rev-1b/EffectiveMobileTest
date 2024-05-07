@@ -229,23 +229,61 @@ class GetQueryMixin(AbstractHandler):
         )
 
 
-class FindNoteHandler(GetQueryMixin):
+class FindNotesHandler(GetQueryMixin):
     def operate(self):
         print(self.language.get('chosen_find_notes', '__ERROR__'))
         query = self.get_full_query()
 
-        df = pd.read_csv('database.csv')
+        df = pd.read_csv('database.csv', index_col='pk')
         filtered_df = df.loc[df.query(query).index]
 
         if not len(filtered_df):
             print(self.language.get('bad_query', '__ERROR__'))
         else:
             filtered_df.apply(pprint, axis=1)
+            return df, query
 
 
-class ChangeNotesHandler(GetQueryMixin):
+class ChangeNotesHandler(FindNotesHandler):
     def operate(self):
-        pass
+        df_query = super().operate()
+
+        if df_query is None:
+            return
+
+        df, query = df_query
+
+        new_fields = self.validate_change_input()
+        df.loc[df.query(query).index, new_fields.keys()] = tuple(new_fields.values())
+
+        df.to_csv('database.csv')
+
+    def validate_change_input(self):
+        """
+
+        Receives a raw string from the user, which should list all
+        the fields to be changed separated by spaces.
+        If at least one field is specified incorrectly, it requires
+        you to enter a new value. Next, for each selected field, it
+        prompts you to specify a new value.
+
+        """
+        raw_input = input(self.language.get('change_fields', '__ERROR__').format(
+            fields=', '.join(self.database_fields.keys()))
+        )
+        managed_data = raw_input.split()
+
+        while any(field not in self.database_fields.keys() for field in managed_data):
+            managed_data = input(self.language.get('unexpected_field', '__ERROR__')).split()
+
+        result = {}
+        for field in managed_data:
+            field_value = input(self.language.get('change_field', '__ERROR__').format(
+                field_name=self.database_fields[field]['name'])
+            )
+            result[field] = field_value
+
+        return result
 
 
 database_fields = {
@@ -283,7 +321,7 @@ commands = {
     'help': ShowTutorialHandler,
     'sh': ShowStatisticHandler,
     'add': AddNoteHandler,
-    'gk': FindNoteHandler,
-    # 'edit_notes': edit_notes_handler,
+    'gk': FindNotesHandler,
+    'ch': ChangeNotesHandler,
     # 'exit': exit_handler,
 }
