@@ -2,20 +2,11 @@ from abc import ABC, abstractmethod
 from datetime import datetime
 
 import pandas as pd
-from tabulate import tabulate
 
 from languages import get_lang_codes, registered_languages
+from mixins import PrettyPrintMixin
 
 pd.set_option('display.max_columns', None)
-
-
-def pprint(obj):
-    print(
-        'Дата: {date}\n'
-        'Категория: {type}\n'
-        'Сумма: {amount}\n'
-        'Описание: {descr}\n'.format(**obj)
-    )
 
 
 class AbstractHandler(ABC):
@@ -38,10 +29,10 @@ class AbstractHandler(ABC):
         user_entered = input(message).strip()
 
         while options and user_entered not in options:
-            error_message = self.language.get(err_message_key, '__ERROR__')
+            error_message = self.language.get(err_message_key)
             print(error_message.format(command=user_entered, options=', '.join(options)))
 
-            user_entered = input(self.language.get('try_again', '__ERROR__')).strip()
+            user_entered = input(self.language.get('try_again')).strip()
 
         return user_entered
 
@@ -49,7 +40,7 @@ class AbstractHandler(ABC):
 class SetLanguageHandler(AbstractHandler):
     def operate(self):
         lang_codes = get_lang_codes()
-        message = self.language.get('select_language', '__ERROR__').format(options=lang_codes)
+        message = self.language.get('select_language').format(options=lang_codes)
 
         chosen_code = self._validate_entered(message, lang_codes)
 
@@ -59,7 +50,7 @@ class SetLanguageHandler(AbstractHandler):
 class StartHandler(AbstractHandler):
     def operate(self):
         options = {'y': True, 'n': False}
-        message = self.language.get('start', '__ERROR__')
+        message = self.language.get('start')
         show_tutorial = self._validate_entered(message, list(options.keys()))
 
         return options[show_tutorial]
@@ -79,7 +70,7 @@ class ShowTutorialHandler(AbstractHandler):
         """
 
         for step in self.tutorial_steps:
-            message = self.language.get(step, '__ERROR__')
+            message = self.language.get(step)
             options = {'y': True, 'n': False}
             further = self._validate_entered(message, list(options.keys()))
 
@@ -93,13 +84,13 @@ class ChooseCommandHandler(AbstractHandler):
         self.commands = commands
 
     def operate(self):
-        message = self.language.get('require_input', '__ERROR__').format(commands=', '.join(self.commands.keys()))
+        message = self.language.get('require_input').format(commands=', '.join(self.commands.keys()))
         command = self._validate_entered(message, self.commands.keys())
 
         return self.commands.get(command)
 
 
-class ShowStatisticHandler(AbstractHandler):
+class ShowStatisticHandler(AbstractHandler, PrettyPrintMixin):
     def __init__(self, language: dict[str, str], database_fields: dict[str, dict]):
         super().__init__(language)
         self.database_fields = database_fields
@@ -113,22 +104,30 @@ class ShowStatisticHandler(AbstractHandler):
         the paginate_by variable.
 
         """
-        print(self.language.get('chosen_show_list', '__ERROR__'))
+        print(self.language.get('chosen_show_list'))
         df = pd.read_csv('database.csv', index_col='pk')
 
         if len(df) == 0:
-            print(self.language.get('empty_table', '__ERROR__'))
+            print(self.language.get('empty_table'))
             return
 
-        # print('\n' + tabulate(df, headers=['ID', *self.database_fields.values()]), end='\n\n')
-
         income, outcome = df.groupby('type').amount.sum()
-        print(f"Текущий баланс: {income - outcome}\n\n")
+        print(f'Текущий баланс: {income - outcome}')
+        print(f'Доход: {income}')
+        print(f'Расход: {outcome}\n')
 
-        df.loc[df.type == 'income'].apply(pprint, axis=1)
+        print('---------- СПИСОК ВСЕХ ТРАНЗАКЦИЙ ПО КАТЕГОРИЯМ ------------\n')
+
+        def _print_by_type( transaction_type: str, message_key: str):
+            print(self.language.get(message_key))
+            df.loc[df.type == transaction_type].apply(self.pprint, fields=self.database_fields, language=self.language,
+                                                      axis=1)
+
+        for transaction, message in {'income': 'income_message', 'outcome': 'outcome_message'}.items():
+            _print_by_type(transaction, message)
 
 
-class AddNoteHandler(AbstractHandler):
+class AddNoteHandler(AbstractHandler, PrettyPrintMixin):
     def __init__(self, language: dict[str, str], database_fields: dict[str, dict]):
         super().__init__(language)
         self.database_fields = database_fields
@@ -143,7 +142,7 @@ class AddNoteHandler(AbstractHandler):
         of entries in the file.
 
         """
-        print(self.language.get('chosen_add_note', '__ERROR__'))
+        print(self.language.get('chosen_add_note'))
         entity = {}
 
         for field, field_attrs in self.database_fields.items():
@@ -151,16 +150,17 @@ class AddNoteHandler(AbstractHandler):
             if field == 'date':
                 field_value = datetime.now().strftime('%Y-%m-%d')
             else:
-                message = self.language.get('input_note_data', '__ERROR__').format(field_name=field_attrs['name'])
+                message = self.language.get('input_note_data').format(
+                    field_name=field_attrs[self.language.get('name_key')])
                 field_value = self._validate_entered(message, field_attrs['valid_values'])
 
             entity[field] = field_value
+
         df = pd.read_csv('database.csv', index_col='pk')
         df.loc[len(df.index)] = entity.values()
 
-        print(self.language.get('note_add_success', '__ERROR__'))
-        print(tabulate(df.tail(1), headers=['ID', *map(lambda val: val['name'], self.database_fields.values())]),
-              end='\n\n')
+        print(self.language.get('note_add_success'))
+        df.tail(1).apply(self.pprint, axis=1)
 
         df.to_csv('database.csv')
 
@@ -187,7 +187,7 @@ class GetQueryMixin(AbstractHandler):
             query = self._validate_entered_query()
             queries.append(query)
 
-            message = self.language.get('add_query', '__ERROR__')
+            message = self.language.get('add_query')
             further = self._validate_entered(message, options=['y', 'n'])
 
         union_query = f'({") & (".join(queries)})'
@@ -204,20 +204,22 @@ class GetQueryMixin(AbstractHandler):
         """
 
         main_arg = self._validate_entered(
-            message=self.language.get('chose_first_arg', '__ERROR__').format(
+            message=self.language.get('chose_first_arg').format(
                 options=', '.join(self.database_fields.keys())),
             options=list(self.database_fields.keys()),
             err_message_key='first_arg_err'
         )
 
         operation = self._validate_entered(
-            message=self.language.get('chose_operator', '__ERROR__'),
+            message=self.language.get('chose_operator').format(
+                options=', '.join(self.database_fields[main_arg]['operations'])
+            ),
             options=self.database_fields[main_arg]['operations'],
             err_message_key='operator_err'
         )
 
         sub_arg = self._validate_entered(
-            message=self.language.get('chose_sub_arg', '__ERROR__'),
+            message=self.language.get('chose_sub_arg'),
             options=None,
             err_message_key='sub_arg_err'
         )
@@ -229,18 +231,18 @@ class GetQueryMixin(AbstractHandler):
         )
 
 
-class FindNotesHandler(GetQueryMixin):
+class FindNotesHandler(GetQueryMixin, PrettyPrintMixin):
     def operate(self):
-        print(self.language.get('chosen_find_notes', '__ERROR__'))
+        print(self.language.get('chosen_find_notes'))
         query = self.get_full_query()
 
         df = pd.read_csv('database.csv', index_col='pk')
         filtered_df = df.loc[df.query(query).index]
 
         if not len(filtered_df):
-            print(self.language.get('bad_query', '__ERROR__'))
+            print(self.language.get('bad_query'))
         else:
-            filtered_df.apply(pprint, axis=1)
+            filtered_df.apply(self.pprint, axis=1)
             return df, query
 
 
@@ -268,18 +270,18 @@ class ChangeNotesHandler(FindNotesHandler):
         prompts you to specify a new value.
 
         """
-        raw_input = input(self.language.get('change_fields', '__ERROR__').format(
+        raw_input = input(self.language.get('change_fields').format(
             fields=', '.join(self.database_fields.keys()))
         )
         managed_data = raw_input.split()
 
         while any(field not in self.database_fields.keys() for field in managed_data):
-            managed_data = input(self.language.get('unexpected_field', '__ERROR__')).split()
+            managed_data = input(self.language.get('unexpected_field')).split()
 
         result = {}
         for field in managed_data:
-            field_value = input(self.language.get('change_field', '__ERROR__').format(
-                field_name=self.database_fields[field]['name'])
+            field_value = input(self.language.get('change_field').format(
+                field_name=self.database_fields[field][self.language.get('name_key')])
             )
             result[field] = field_value
 
@@ -288,33 +290,30 @@ class ChangeNotesHandler(FindNotesHandler):
 
 database_fields = {
     'date': {
-        'name': 'Date',
+        'name_key': 'date_name',
         'operations': ('==', '>', '>=', '<', '<='),
-        'valid_values': None,
+        'valid_values_key': None,
         'query_form': '{main_arg}{operation}"{sub_arg}"',
     },
     'type': {
-        'name': 'Transaction type',
+        'name_key': 'type_name',
         'operations': ('==',),
-        'valid_values': ('income', 'outcome',),
+        'valid_values_key': 'values_for_type',
         'query_form': '{main_arg}{operation}"{sub_arg}"',
     },
     'amount': {
-        'name': 'Amount',
+        'name_key': 'amount_name',
         'operations': ('==', '>', '>=', '<', '<='),
-        'valid_values': None,
+        'valid_values_key': None,
         'query_form': '{main_arg}{operation}{sub_arg}',
     },
     'descr': {
-        'name': 'Description',
+        'name_key': 'descr_name',
         'operations': ('==',),
-        'valid_values': None,
+        'valid_values_key': None,
         'query_form': '{main_arg}{operation}"{sub_arg}"',
     },
 }
-
-# At the moment, filtering fields is only available by the equal sign, however,
-# to add new operations it is enough to register them in this dictionary
 
 # All commands specified in this collection become available to the user in the main menu
 commands = {

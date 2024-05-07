@@ -5,3 +5,4 @@ pk,date,type,amount,descr
 3,2024-12-05,income,250,Salary
 4,2024-12-05,outcome,300,Bought a refrigerator
 5,2024-05-06,income,200,test
+6,2024-05-07,income,1000,Donation

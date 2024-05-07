@@ -1,6 +1,6 @@
 from handlers import SetLanguageHandler, StartHandler, ShowTutorialHandler, ChooseCommandHandler, commands, \
     database_fields
-from languages import eng_lang, ru_lang
+from languages import ru_lang
 
 
 def run(tutorial_steps):
