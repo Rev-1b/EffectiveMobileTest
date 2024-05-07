@@ -156,7 +156,7 @@ class AddNoteHandler(AbstractHandler, PrettyPrintMixin):
                 field_name=self.language.get(field)
             )
 
-            validator = (field_attrs['validator_class'])
+            validator = field_attrs['validator_class']
 
             if validator:
                 validator = validator(
@@ -242,7 +242,7 @@ class GetQueryMixin(AbstractHandler):
         )
 
         sub_validator = field_attrs['validator_class'](
-            options=field_attrs['validator_arg_code'],
+            options=self.language.get(field_attrs['validator_arg_code']),
             err_code='sub_arg_err'
         ) if field_attrs['validator_class'] else None
 
