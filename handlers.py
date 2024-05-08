@@ -193,38 +193,39 @@ class AddNoteHandler(AbstractHandler, PrettyPrintMixin):
         return super()._validate_entered(message, validator)
 
 
-class GetQueryMixin(AbstractHandler):
+class FindNotesHandler(AbstractHandler, PrettyPrintMixin):
     def __init__(self, language: dict[str, str], database_fields: dict[str, dict]):
         super().__init__(language)
         self.database_fields = database_fields
 
     def operate(self):
-        pass
+        print(self.language.get('chosen_find_notes'))
+
+        queries = []
+        df = pd.read_csv('database.csv', index_col='pk')
+
+        further = 'y'
+        while further == 'y':
+            queries.append(self._validate_entered_query())
+            filtered_df = df.loc[df.query(f'({") & (".join(queries)})').index]
+            if not len(filtered_df):
+                print(self.language.get('bad_query'))
+                raise ExitSignal
+
+            print(self.language.get('n_notes_found').format(number=len(filtered_df)))
+            filtered_df.apply(
+                self.pprint, fields=self.database_fields, language=self.language, axis=1
+            )
+
+            message = self.language.get('add_query')
+            validator = ValueInValidator(options=('y', 'n'))
+            further = self._validate_entered(message, validator)
+
+        return df, f'({") & (".join(queries)})'
 
     @translate_dict
     def _validate_entered(self, message: str, validator: Optional[callable] = None) -> str:
         return super()._validate_entered(message, validator)
-
-    def get_full_query(self):
-        """
-
-        Until the user decides to finish, new queries are requested.
-        Then the function combines all received requests into one and returns it.
-
-        """
-        queries = []
-        further = 'y'
-
-        while further == 'y':
-            query = self._validate_entered_query()
-            queries.append(query)
-
-            message = self.language.get('add_query')
-            validator = ValueInValidator(options=['y', 'n'])
-            further = self._validate_entered(message, validator)
-
-        union_query = f'({") & (".join(queries)})'
-        return union_query
 
     def _validate_entered_query(self):
         """
@@ -275,23 +276,6 @@ class GetQueryMixin(AbstractHandler):
             operation=operation,
             sub_arg=sub_arg
         )
-
-
-class FindNotesHandler(GetQueryMixin, PrettyPrintMixin):
-    def operate(self):
-        print(self.language.get('chosen_find_notes'))
-        query = self.get_full_query()
-
-        df = pd.read_csv('database.csv', index_col='pk')
-        filtered_df = df.loc[df.query(query).index]
-
-        if not len(filtered_df):
-            print(self.language.get('bad_query'))
-        else:
-            filtered_df.apply(
-                self.pprint, fields=self.database_fields, language=self.language, axis=1
-            )
-            return df, query
 
 
 class ChangeNotesHandler(FindNotesHandler):
