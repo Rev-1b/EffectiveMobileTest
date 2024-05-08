@@ -1,5 +1,7 @@
 from handlers import SetLanguageHandler, StartHandler, ShowTutorialHandler, ChooseCommandHandler, commands, \
     database_fields
+
+from signals import ExitSignal
 from languages import ru_lang
 
 
@@ -16,9 +18,12 @@ def run(tutorial_steps):
     #     show_tutorial_handler.operate()
 
     while True:
-        choose_command_handler = ChooseCommandHandler(language, commands)
-        command_class = choose_command_handler.operate()(language, database_fields)
-        command_class.operate()
+        try:
+            choose_command_handler = ChooseCommandHandler(language, commands)
+            command_class = choose_command_handler.operate()(language, database_fields)
+            command_class.operate()
+        except ExitSignal:
+            pass
 
 
 if __name__ == '__main__':

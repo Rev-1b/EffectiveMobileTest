@@ -25,7 +25,7 @@ def translate_dict(func):
             new_validator = validator.__class__(validator.options.values(), validator.err_code)
             result = func(self, message, new_validator)
             reversed_options = {v: k for k, v in validator.options.items()}
-            return result if result == 'exit' else reversed_options[result]
+            return reversed_options[result]
 
         return func(self, message, validator)
 

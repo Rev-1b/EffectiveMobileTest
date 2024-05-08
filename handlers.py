@@ -5,6 +5,7 @@ import pandas as pd
 from languages import get_lang_codes, registered_languages
 from mixins import PrettyPrintMixin, translate_dict
 from validators import *
+from signals import ExitSignal
 
 pd.set_option('display.max_columns', None)
 
@@ -26,9 +27,11 @@ class AbstractHandler(ABC):
 
         user_entered = input(message).strip()
 
-        while validator and not validator.validate(user_entered):
-            print(self.language.get(validator.err_code))
-            user_entered = input(self.language.get('try_again')).strip()
+        while validator and not validator.validate(user_entered) or user_entered == 'exit':
+            if user_entered == 'exit':
+                raise ExitSignal
+
+            user_entered = input(self.language.get(validator.err_code)).strip()
 
         return user_entered
 
@@ -123,11 +126,11 @@ class ShowStatisticHandler(AbstractHandler, PrettyPrintMixin):
 
         validator = ValueInValidator(options=self.language.get('values_for_type'))
         message = self.language.get('filter_by_type').format(
-            options=', '.join(map(str.capitalize, self.language.get('values_for_type').values()))
+            options=', '.join(self.language.get('values_for_type').values())
         )
         display_by_type = self._validate_entered(message, validator)
 
-        while display_by_type != 'exit':
+        while True:
             message_keys = {'income': 'income_message', 'outcome': 'outcome_message'}
             print(self.language.get(message_keys[display_by_type]))
 
@@ -173,8 +176,6 @@ class AddNoteHandler(AbstractHandler, PrettyPrintMixin):
                 )
 
             field_value = self._validate_entered(message, validator)
-            if field_value == 'exit':
-                return
             entity[field] = field_value
 
         df = pd.read_csv('database.csv', index_col='pk')
@@ -216,8 +217,6 @@ class GetQueryMixin(AbstractHandler):
 
         while further == 'y':
             query = self._validate_entered_query()
-            if query == 'exit':
-                return 'exit'
             queries.append(query)
 
             message = self.language.get('add_query')
@@ -238,12 +237,12 @@ class GetQueryMixin(AbstractHandler):
         """
 
         main_validator = ValueInValidator(
-            options=self.database_fields.keys(),
+            options={k: self.language.get(k) for k in self.database_fields},
             err_code='first_arg_err'
         )
         main_arg = self._validate_entered(
             message=self.language.get('chose_first_arg').format(
-                options=', '.join(self.database_fields.keys())
+                options=', '.join(self.language.get(k) for k in self.database_fields)
             ),
             validator=main_validator
         )
@@ -271,9 +270,6 @@ class GetQueryMixin(AbstractHandler):
             validator=sub_validator
         )
 
-        if any(map(lambda val: val == 'exit', (main_arg, operation, sub_arg))):
-            return 'exit'
-
         return self.database_fields[main_arg]['query_form'].format(
             main_arg=main_arg,
             operation=operation,
@@ -285,8 +281,6 @@ class FindNotesHandler(GetQueryMixin, PrettyPrintMixin):
     def operate(self):
         print(self.language.get('chosen_find_notes'))
         query = self.get_full_query()
-        if query == 'exit':
-            return 'exit'
 
         df = pd.read_csv('database.csv', index_col='pk')
         filtered_df = df.loc[df.query(query).index]

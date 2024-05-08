@@ -30,7 +30,7 @@ class ValueInValidator(AbstractValidator):
     def validate(self, user_entered: str) -> bool:
         if user_entered == 'exit':
             return True
-        return user_entered.lower() in self.options
+        return user_entered in self.options
 
 
 class TypeValidator(AbstractValidator):
