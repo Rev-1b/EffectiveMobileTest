@@ -3,7 +3,7 @@ from typing import Optional
 import pandas as pd
 
 from languages import get_lang_codes, registered_languages
-from mixins import PrettyPrintMixin
+from mixins import PrettyPrintMixin, translate_dict
 from validators import *
 
 pd.set_option('display.max_columns', None)
@@ -25,12 +25,16 @@ class AbstractHandler(ABC):
         """
 
         user_entered = input(message).strip()
+        if user_entered == 'exit':
+            return user_entered
 
         while validator and not validator.validate(user_entered):
             error_message = self.language.get(validator.err_code)
             print(error_message)
 
             user_entered = input(self.language.get('try_again')).strip()
+            if user_entered == 'exit':
+                return user_entered
 
         return user_entered
 
@@ -97,7 +101,7 @@ class ChooseCommandHandler(AbstractHandler):
 
 
 class ShowStatisticHandler(AbstractHandler, PrettyPrintMixin):
-    def __init__(self, language: dict[str, str], database_fields: dict[str, dict]):
+    def __init__(self, language: dict[str, str | dict], database_fields: dict[str, dict]):
         super().__init__(language)
         self.database_fields = database_fields
 
@@ -123,14 +127,25 @@ class ShowStatisticHandler(AbstractHandler, PrettyPrintMixin):
             summary=income - outcome, income=income, outcome=outcome
         ))
 
-        def _print_by_type(transaction_type: str, message_key: str):
-            print(self.language.get(message_key))
-            df.loc[df.type == transaction_type].apply(
+        validator = ValueInValidator(options=self.language.get('values_for_type'))
+        message = self.language.get('filter_by_type').format(
+            options=', '.join(map(str.capitalize, self.language.get('values_for_type').values()))
+        )
+        display_by_type = self._validate_entered(message, validator)
+
+        while display_by_type != 'exit':
+            message_keys = {'income': 'income_message', 'outcome': 'outcome_message'}
+            print(self.language.get(message_keys[display_by_type]))
+
+            df.loc[df.type == display_by_type].apply(
                 self.pprint, fields=self.database_fields, language=self.language, axis=1
             )
 
-        for transaction, message in {'income': 'income_message', 'outcome': 'outcome_message'}.items():
-            _print_by_type(transaction, message)
+            display_by_type = self._validate_entered(message, validator)
+
+    @translate_dict
+    def _validate_entered(self, message: str, validator: Optional[callable] = None) -> str:
+        return super()._validate_entered(message, validator)
 
 
 class AddNoteHandler(AbstractHandler, PrettyPrintMixin):
@@ -242,7 +257,7 @@ class GetQueryMixin(AbstractHandler):
         )
 
         sub_validator = field_attrs['validator_class'](
-            options=self.language.get(field_attrs['validator_arg_code']),
+            self.language.get(field_attrs['validator_arg_code']),
             err_code='sub_arg_err'
         ) if field_attrs['validator_class'] else None
 

@@ -8,7 +8,7 @@ class AbstractValidator(ABC):
 
     @abstractmethod
     def validate(self, user_entered):
-        return True
+        pass
 
 
 class RegExValidator(AbstractValidator):
@@ -17,6 +17,8 @@ class RegExValidator(AbstractValidator):
         self.regex = regex
 
     def validate(self, user_entered):
+        if user_entered == 'exit':
+            return True
         return re.search(self.regex, user_entered) is not None
 
 
@@ -26,5 +28,7 @@ class ValueInValidator(AbstractValidator):
         self.options = options
 
     def validate(self, user_entered: str) -> bool:
+        if user_entered == 'exit':
+            return True
         return user_entered.lower() in self.options
 
