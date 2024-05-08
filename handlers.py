@@ -4,8 +4,8 @@ import pandas as pd
 
 from languages import get_lang_codes, registered_languages
 from mixins import PrettyPrintMixin, translate_dict
-from validators import *
 from signals import ExitSignal
+from validators import *
 
 pd.set_option('display.max_columns', None)
 
@@ -243,8 +243,7 @@ class FindNotesHandler(AbstractHandler, PrettyPrintMixin):
         )
         main_arg = self._validate_entered(
             message=self.language.get('chose_first_arg').format(
-                options=', '.join(self.language.get(k) for k in self.database_fields)
-            ),
+                options=', '.join(self.language.get(k) for k in self.database_fields)),
             validator=main_validator
         )
 
@@ -256,8 +255,7 @@ class FindNotesHandler(AbstractHandler, PrettyPrintMixin):
         )
         operation = self._validate_entered(
             message=self.language.get('chose_operator').format(
-                options=', '.join(field_attrs['operations'])
-            ),
+                options=', '.join(field_attrs['operations'])),
             validator=oper_validator
         )
 
@@ -280,12 +278,7 @@ class FindNotesHandler(AbstractHandler, PrettyPrintMixin):
 
 class ChangeNotesHandler(FindNotesHandler):
     def operate(self):
-        df_query = super().operate()
-
-        if df_query is None:
-            return
-
-        df, query = df_query
+        df, query = super().operate()
 
         new_fields = self.validate_change_input()
         df.loc[df.query(query).index, new_fields.keys()] = tuple(new_fields.values())
@@ -302,16 +295,26 @@ class ChangeNotesHandler(FindNotesHandler):
         prompts you to specify a new value.
 
         """
-        raw_input = input(self.language.get('change_fields').format(
-            fields=', '.join(self.database_fields.keys()))
-        )
-        managed_data = raw_input.split()
 
-        while any(field not in self.database_fields.keys() for field in managed_data):
-            managed_data = input(self.language.get('unexpected_field')).split()
+        fields_to_change = []
+        further = 'y'
+        while further == 'y':
+            validator = ValueInValidator(
+                options={k: self.language.get(k) for k in self.database_fields},
+                err_code='first_arg_err'
+            )
+            message = self.language.get('choose_field_to_change').format(
+                fields=', '.join([self.language.get(k) for k in self.database_fields])
+            )
+            field = self._validate_entered(message, validator)
+            fields_to_change.append(field)
+
+            message = self.language.get('add_query')
+            validator = ValueInValidator(options=('y', 'n'))
+            further = self._validate_entered(message, validator)
 
         result = {}
-        for field in managed_data:
+        for field in fields_to_change:
             field_value = input(self.language.get('change_field').format(
                 field_name=self.language.get(field)
             ))

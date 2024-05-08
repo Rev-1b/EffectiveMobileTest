@@ -1,7 +1,7 @@
 pk,date,type,amount,descr
 0,2024-12-01,income,250,Salary
 1,2024-12-03,income,100,Birthday gift
-2,2024-12-04,outcome,12,Shop purchase
+2,2024-12-04,Доход,13,Shop purchase
 3,2024-12-05,income,250,Salary
 4,2024-12-05,outcome,300,Bought a refrigerator
 5,2024-05-06,income,200,test
