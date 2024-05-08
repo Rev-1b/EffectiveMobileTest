@@ -9,8 +9,10 @@ class PrettyPrintMixin:
         for field, field_attrs in fields.items():
             field_value = obj[field]
 
-            # if field_attrs['validator'] is not None:
-            #     field_value = language.get(field_attrs['valid_values_key']).get(field_value)
+            if isinstance(language.get(field_attrs['validator_arg_code']), dict):
+                field_value = language.get(
+                    field_attrs['validator_arg_code']
+                )[field_value].capitalize()
 
             print(f"{language.get(field)}: {field_value}")
 
@@ -19,10 +21,12 @@ class PrettyPrintMixin:
 
 def translate_dict(func):
     def wrapper(self, message: str, validator: Optional[callable]) -> str:
-        if validator and isinstance(validator.options, dict):
+        if validator and hasattr(validator, 'options') and isinstance(validator.options, dict):
             new_validator = validator.__class__(validator.options.values(), validator.err_code)
             result = func(self, message, new_validator)
             reversed_options = {v: k for k, v in validator.options.items()}
-            return reversed_options[result]
-        return func(message, validator)
+            return result if result == 'exit' else reversed_options[result]
+
+        return func(self, message, validator)
+
     return wrapper

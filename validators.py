@@ -32,3 +32,14 @@ class ValueInValidator(AbstractValidator):
             return True
         return user_entered.lower() in self.options
 
+
+class TypeValidator(AbstractValidator):
+    def __init__(self, datatype: str, err_code: str = 'notfound_command'):
+        super().__init__(err_code)
+        self.datatype = datatype
+
+    def validate(self, user_entered):
+        if user_entered == 'exit':
+            return True
+        return isinstance(user_entered, self.datatype)
+

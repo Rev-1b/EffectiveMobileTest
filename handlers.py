@@ -25,16 +25,10 @@ class AbstractHandler(ABC):
         """
 
         user_entered = input(message).strip()
-        if user_entered == 'exit':
-            return user_entered
 
         while validator and not validator.validate(user_entered):
-            error_message = self.language.get(validator.err_code)
-            print(error_message)
-
+            print(self.language.get(validator.err_code))
             user_entered = input(self.language.get('try_again')).strip()
-            if user_entered == 'exit':
-                return user_entered
 
         return user_entered
 
@@ -167,18 +161,22 @@ class AddNoteHandler(AbstractHandler, PrettyPrintMixin):
         entity = {}
 
         for field, field_attrs in self.database_fields.items():
-            message = self.language.get('input_note_data').format(
-                field_name=self.language.get(field)
+            message = self.language.get(
+                field_attrs['input_message']
             )
 
             validator = field_attrs['validator_class']
-
             if validator:
                 validator = validator(
-                    self.language.get(field_attrs['validator_arg_code'])
+                    self.language.get(field_attrs['validator_arg_code']),
+                    err_code='input_error'
                 )
 
             field_value = self._validate_entered(message, validator)
+
+            if field_value.isdigit():
+                field_value = int(field_value)
+
             entity[field] = field_value
 
         df = pd.read_csv('database.csv', index_col='pk')
@@ -189,8 +187,11 @@ class AddNoteHandler(AbstractHandler, PrettyPrintMixin):
         df.tail(1).apply(
             self.pprint, fields=self.database_fields, language=self.language, axis=1
         )
-
         df.to_csv('database.csv')
+
+    @translate_dict
+    def _validate_entered(self, message: str, validator: Optional[callable] = None) -> str:
+        return super()._validate_entered(message, validator)
 
 
 class GetQueryMixin(AbstractHandler):
@@ -339,24 +340,28 @@ database_fields = {
         'operations': ('==', '>', '>=', '<', '<='),
         'validator_class': RegExValidator,
         'validator_arg_code': 'date_regex',
+        'input_message': 'date_input',
         'query_form': '{main_arg}{operation}"{sub_arg}"',
     },
     'type': {
         'operations': ('==',),
         'validator_class': ValueInValidator,
         'validator_arg_code': 'values_for_type',
+        'input_message': 'type_input',
         'query_form': '{main_arg}{operation}"{sub_arg}"',
     },
     'amount': {
         'operations': ('==', '>', '>=', '<', '<='),
-        'validator_class': None,
-        'validator_arg_code': None,
+        'validator_class': TypeValidator,
+        'validator_arg_code': 'amount_type',
+        'input_message': 'amount_input',
         'query_form': '{main_arg}{operation}{sub_arg}',
     },
     'descr': {
         'operations': ('==',),
         'validator_class': None,
         'validator_arg_code': None,
+        'input_message': 'descr_input',
         'query_form': '{main_arg}{operation}"{sub_arg}"',
     },
 }
@@ -364,9 +369,9 @@ database_fields = {
 # All commands specified in this collection become available to the user in the main menu
 commands = {
     'help': ShowTutorialHandler,
-    'sh': ShowStatisticHandler,
+    'show': ShowStatisticHandler,
     'add': AddNoteHandler,
-    'gk': FindNotesHandler,
-    'ch': ChangeNotesHandler,
+    'find': FindNotesHandler,
+    'change': ChangeNotesHandler,
     # 'exit': exit_handler,
 }
