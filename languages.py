@@ -79,7 +79,6 @@ ru_lang = {
     'chose_operator': 'Выберите действие над значением поля: "{options}"\n ... ',
     'operator_err': 'Вы выбрали недопустимый оператор, проверьте введенное значение!\n ... ',
     'chose_sub_arg': 'Выберите значение, по которому выбранное поле будет отфильтровано:\n ... ',
-    'sub_arg_err': 'Введено недопустимое значение для поля {field}!\n ... ',
     # at this moment, value is empty due to the lack of operators who care about the type of input data
     'add_query': 'Хотите добавить еще одно условие фильтрации? "y/n" ... ',
     'bad_query': 'По вашему запросу не найдено ни одной записи!',

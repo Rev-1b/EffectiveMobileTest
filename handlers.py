@@ -173,10 +173,8 @@ class AddNoteHandler(AbstractHandler, PrettyPrintMixin):
                 )
 
             field_value = self._validate_entered(message, validator)
-
-            if field_value.isdigit():
-                field_value = int(field_value)
-
+            if field_value == 'exit':
+                return
             entity[field] = field_value
 
         df = pd.read_csv('database.csv', index_col='pk')
@@ -200,7 +198,11 @@ class GetQueryMixin(AbstractHandler):
         self.database_fields = database_fields
 
     def operate(self):
-        print(self.get_full_query())
+        pass
+
+    @translate_dict
+    def _validate_entered(self, message: str, validator: Optional[callable] = None) -> str:
+        return super()._validate_entered(message, validator)
 
     def get_full_query(self):
         """
@@ -214,6 +216,8 @@ class GetQueryMixin(AbstractHandler):
 
         while further == 'y':
             query = self._validate_entered_query()
+            if query == 'exit':
+                return 'exit'
             queries.append(query)
 
             message = self.language.get('add_query')
@@ -259,13 +263,16 @@ class GetQueryMixin(AbstractHandler):
 
         sub_validator = field_attrs['validator_class'](
             self.language.get(field_attrs['validator_arg_code']),
-            err_code='sub_arg_err'
+            err_code=field_attrs['validator_arg_code']
         ) if field_attrs['validator_class'] else None
 
         sub_arg = self._validate_entered(
             message=self.language.get('chose_sub_arg'),
             validator=sub_validator
         )
+
+        if any(map(lambda val: val == 'exit', (main_arg, operation, sub_arg))):
+            return 'exit'
 
         return self.database_fields[main_arg]['query_form'].format(
             main_arg=main_arg,
@@ -278,6 +285,8 @@ class FindNotesHandler(GetQueryMixin, PrettyPrintMixin):
     def operate(self):
         print(self.language.get('chosen_find_notes'))
         query = self.get_full_query()
+        if query == 'exit':
+            return 'exit'
 
         df = pd.read_csv('database.csv', index_col='pk')
         filtered_df = df.loc[df.query(query).index]
