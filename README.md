@@ -12,6 +12,8 @@
 
 ## Как клонировать проект
 
+Использован Pytnon 3.11
+
 1. Клонируйте репозиторий
    ```sh
    git clone https://github.com/Rev-1b/EffectiveMobile.git
@@ -89,8 +91,9 @@ handlers.py</a>.
 7. <a href="#add_note_handler">AddNoteHandler</a> - обрабатывает запрос на добавление новой записи в базу
 8. <a href="#find_notes_handler">FindNotesHandler</a> - выводит пользователю все записи, прошедшие фильтрацию
 9. <a href="#change_notes_handler">ChangeNotesHandler</a> - изменяет прошедшие фильтрацию записи
-10. <a href="#database_fields">database_fields</a> - словарь, который содержит поля и их атрибуты
-11. <a href="#commands">commands</a> - словарь, который содержит имена команд для интерфейса и ссылки на их хендлеры
+10. <a href="#field_attrs">FieldAttrs</a> - именованный кортеж, представляющий атрибуты полей базы данных
+11. <a href="#database_fields">database_fields</a> - словарь, который содержит поля и их атрибуты
+12. <a href="#commands">commands</a> - словарь, который содержит имена команд для интерфейса и ссылки на их хендлеры
 
 <hr>
 
@@ -144,7 +147,7 @@ handlers.py</a>.
 Псевдонимы и ссылки можно настроить <a href="#commands">здесь</a>.
 <hr>
 
-### <span id="choose_command_handler">class ShowStatisticHandler</span>
+### <span id="show_statistic_handler">class ShowStatisticHandler</span>
 
 Отображает статистику по базе данных.
 
@@ -241,7 +244,7 @@ handlers.py</a>.
 
 <hr>
 
-### <span id="database_field">Поля базы данных</span>
+### <span id="database_fields">Поля базы данных</span>
 
 Словарь, в котором настраиваются поля базы данных, их псевдонимы и атрибуты.
 Ключами словаря выступают названия полей, а значениями объекты FieldAttrs.
