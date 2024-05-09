@@ -1,6 +1,5 @@
 from typing import Optional, TypeVar, NamedTuple, Type
 
-import pandas
 import pandas as pd
 
 from languages import get_lang_codes, registered_languages
@@ -61,8 +60,9 @@ database_fields = {
 }
 
 
+# Handler classes
 class AbstractHandler(ABC):
-    """Implements the abstract method "operate" and a protected method "_validate_entered"."""
+    """Implements the abstract method "operate" and a protected method "_get_command"."""
 
     def __init__(self, language: dict[str, str | dict]):
         self.language = language
@@ -71,7 +71,7 @@ class AbstractHandler(ABC):
     def operate(self):
         pass
 
-    def _validate_entered(self, message: str, validator: Optional[AbstractValidator] = None) -> str:
+    def _get_command(self, message: str, validator: Optional[AbstractValidator] = None) -> str:
         """
         Uses the resulting validator to validate user-supplied values.
         Will require you to repeat the value entry until it passes validation.
@@ -104,7 +104,7 @@ class SetLanguageHandler(AbstractHandler):
         # Offers the user a choice of which interface language to use
         message = self.language.get('select_language').format(options=', '.join(lang_codes))
         validator = ValueInValidator(options=lang_codes)
-        chosen_code = self._validate_entered(message, validator)
+        chosen_code = self._get_command(message, validator)
 
         # Returns the language pack
         return registered_languages.get(chosen_code)
@@ -119,7 +119,7 @@ class WelcomeHandler(AbstractHandler):
         # Requests to the user about his desire to show tutorial
         message = self.language.get('start').format(options='/'.join(options.keys()))
         validator = ValueInValidator(options=list(options.keys()))
-        show_tutorial = self._validate_entered(message, validator)
+        show_tutorial = self._get_command(message, validator)
 
         # Returns user decision
         return options[show_tutorial]
@@ -142,7 +142,7 @@ class ShowTutorialHandler(AbstractHandler):
             # Requests to the user about his desire to continue training
             message = self.language.get(step).format(options='/'.join(options.keys()))
             validator = ValueInValidator(options=list(options.keys()))
-            further = self._validate_entered(message, validator)
+            further = self._get_command(message, validator)
 
             if not options[further]:
                 break
@@ -162,7 +162,7 @@ class ChooseCommandHandler(AbstractHandler):
             commands=', '.join(self.commands.keys())
         )
         validator = ValueInValidator(options=self.commands.keys())
-        command = self._validate_entered(message, validator)
+        command = self._get_command(message, validator)
 
         # Returns a reference to the handler class that needs to be launched
         return self.commands.get(command)
@@ -197,7 +197,7 @@ class ShowStatisticHandler(AbstractHandler, PrettyPrintMixin):
         message = self.language.get('filter_by_type').format(
             options=', '.join(self.language.get('values_for_type').values())
         )
-        display_by_type = self._validate_entered(message, validator)
+        display_by_type = self._get_command(message, validator)
 
         # The loop will run until the user enters "exit"
         while True:
@@ -208,11 +208,11 @@ class ShowStatisticHandler(AbstractHandler, PrettyPrintMixin):
                 self.pprint, fields=self.database_fields, language=self.language, axis=1
             )
 
-            display_by_type = self._validate_entered(message, validator)
+            display_by_type = self._get_command(message, validator)
 
     @translate_dict
-    def _validate_entered(self, message: str, validator: Optional[callable] = None) -> str:
-        return super()._validate_entered(message, validator)
+    def _get_command(self, message: str, validator: Optional[callable] = None) -> str:
+        return super()._get_command(message, validator)
 
 
 class AddNoteHandler(AbstractHandler, PrettyPrintMixin):
@@ -240,7 +240,7 @@ class AddNoteHandler(AbstractHandler, PrettyPrintMixin):
                 err_code='input_error'
             ) if validator else None
 
-            field_value = self._validate_entered(message, validator)
+            field_value = self._get_command(message, validator)
             entity[field] = field_value
 
         df = pd.read_csv('database.csv', index_col='pk')
@@ -255,8 +255,8 @@ class AddNoteHandler(AbstractHandler, PrettyPrintMixin):
         df.to_csv('database.csv')
 
     @translate_dict
-    def _validate_entered(self, message: str, validator: Optional[callable] = None) -> str:
-        return super()._validate_entered(message, validator)
+    def _get_command(self, message: str, validator: Optional[callable] = None) -> str:
+        return super()._get_command(message, validator)
 
 
 class FindNotesHandler(AbstractHandler, PrettyPrintMixin):
@@ -264,7 +264,7 @@ class FindNotesHandler(AbstractHandler, PrettyPrintMixin):
         super().__init__(language)
         self.database_fields = fields
 
-    def operate(self) -> tuple[pandas.DataFrame, str]:
+    def operate(self) -> tuple[pd.DataFrame, str]:
         """
         Creates a database query based on user selection.
         After generating each request, the user will be shown all the filtered records from the database.
@@ -282,7 +282,7 @@ class FindNotesHandler(AbstractHandler, PrettyPrintMixin):
 
         further = True
         while further:
-            queries.append(self._validate_entered_query())
+            queries.append(self._get_query())
             filtered_df = df.loc[df.query(f'({") & (".join(queries)})').index]
             if not len(filtered_df):
                 print(self.language.get('bad_query'))
@@ -296,15 +296,15 @@ class FindNotesHandler(AbstractHandler, PrettyPrintMixin):
             # Requests to the user about his desire to add more queries
             message = self.language.get('add_query').format(options='/'.join(options.keys()))
             validator = ValueInValidator(options.keys())
-            further = options[self._validate_entered(message, validator)]
+            further = options[self._get_command(message, validator)]
 
         return df, f'({") & (".join(queries)})'
 
     @translate_dict
-    def _validate_entered(self, message: str, validator: Optional[callable] = None) -> str:
-        return super()._validate_entered(message, validator)
+    def _get_command(self, message: str, validator: Optional[callable] = None) -> str:
+        return super()._get_command(message, validator)
 
-    def _validate_entered_query(self) -> str:
+    def _get_query(self) -> str:
         """
         Prompts the user for 3 parameters:
         1) Field by which filtering will occur
@@ -318,7 +318,7 @@ class FindNotesHandler(AbstractHandler, PrettyPrintMixin):
             options={k: self.language.get(k) for k in self.database_fields},
             err_code='first_arg_err'
         )
-        main_arg = self._validate_entered(
+        main_arg = self._get_command(
             message=self.language.get('chose_first_arg').format(
                 options=', '.join(self.language.get(k) for k in self.database_fields)),
             validator=main_validator
@@ -332,7 +332,7 @@ class FindNotesHandler(AbstractHandler, PrettyPrintMixin):
             options=field_attrs.operations,
             err_code='operator_err'
         )
-        operation = self._validate_entered(
+        operation = self._get_command(
             message=self.language.get('chose_operator').format(
                 options=', '.join(field_attrs.operations)),
             validator=oper_validator
@@ -344,7 +344,7 @@ class FindNotesHandler(AbstractHandler, PrettyPrintMixin):
             err_code='input_error'
         ) if field_attrs.validator_class else None
 
-        sub_arg = self._validate_entered(
+        sub_arg = self._get_command(
             message=self.language.get('chose_sub_arg'),
             validator=sub_validator
         )
@@ -391,13 +391,13 @@ class ChangeNotesHandler(FindNotesHandler):
             message = self.language.get('choose_field_to_change').format(
                 fields=', '.join([self.language.get(k) for k in self.database_fields])
             )
-            field = self._validate_entered(message, validator)
+            field = self._get_command(message, validator)
             fields_to_change.add(field)
 
             # Requests to the user about his desire to continue adding fields to change list
             message = self.language.get('add_field').format(options='/'.join(options.keys()))
             validator = ValueInValidator(options.keys())
-            further = options[self._validate_entered(message, validator)]
+            further = options[self._get_command(message, validator)]
 
         return list(fields_to_change)
 
@@ -420,7 +420,7 @@ class ChangeNotesHandler(FindNotesHandler):
             ) if validator else None
 
             message = self.language.get(field_attrs.input_message)
-            field_value = self._validate_entered(message, validator)
+            field_value = self._get_command(message, validator)
 
             # Crutch for pandas. If you do not convert numeric values to Integer,
             # Pandas will display a warning when saving

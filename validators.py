@@ -16,7 +16,7 @@ class RegExValidator(AbstractValidator):
         super().__init__(err_code)
         self.regex = regex
 
-    def validate(self, user_entered):
+    def validate(self, user_entered) -> bool:
         if user_entered == 'exit':
             return True
         return re.search(self.regex, user_entered) is not None
@@ -38,7 +38,7 @@ class TypeValidator(AbstractValidator):
         super().__init__(err_code)
         self.datatype = datatype
 
-    def validate(self, user_entered):
+    def validate(self, user_entered) -> bool:
         if user_entered == 'exit':
             return True
         try:

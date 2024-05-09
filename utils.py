@@ -21,7 +21,7 @@ class PrettyPrintMixin:
         print('\n------------------------------\n')
 
 
-def translate_dict(func):
+def translate_dict(func: callable) -> callable:
     """
     The function is intended to be used as a decorator.
     For some fields, the values stored in the database have aliases that are more user-friendly.
