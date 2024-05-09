@@ -117,7 +117,7 @@ ru_lang = {
     'descr': 'Описание',
     'descr_input': 'Введите описание к транзакции:\n ... ',
 
-    'agree_disagree': {'д': True, 'н': False},
+    'agree_disagree': {'да': True, 'нет': False},
 }
 
 eng_lang = {
@@ -238,7 +238,7 @@ eng_lang = {
     'descr': 'Description',
     'descr_input': 'Enter a description for the transaction:\n ... ',
 
-    'agree_disagree': {'y': True, 'n': False},
+    'agree_disagree': {'yes': True, 'no': False},
 }
 
 # When adding a new language pack, you must register the new language here

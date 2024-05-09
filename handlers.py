@@ -62,6 +62,7 @@ database_fields = {
 
 class AbstractHandler(ABC):
     """Implements the abstract method "operate" and a protected method "_validate_entered"."""
+
     def __init__(self, language: dict[str, str | dict]):
         self.language = language
 
@@ -91,8 +92,11 @@ class AbstractHandler(ABC):
 
 
 class SetLanguageHandler(AbstractHandler):
-    """A handler class that sets the interface language."""
     def operate(self) -> dict[str, object]:
+        """
+        The function sets the interface language.
+        The user is given a choice from all registered language packs.
+        """
         # Gets a list of all registered language packs
         lang_codes = get_lang_codes()
 
@@ -106,14 +110,17 @@ class SetLanguageHandler(AbstractHandler):
 
 
 class WelcomeHandler(AbstractHandler):
-    """Welcomes the user and offers training"""
-    def operate(self):
+    def operate(self) -> bool:
+        """The function welcomes the user and offers training."""
+        # Receives yes/no translation for selected language
         options = self.language.get('agree_disagree')
-        message = self.language.get('start').format(options='/'.join(options.keys()))
 
+        # Requests to the user about his desire to show tutorial
+        message = self.language.get('start').format(options='/'.join(options.keys()))
         validator = ValueInValidator(options=list(options.keys()))
         show_tutorial = self._validate_entered(message, validator)
 
+        # Returns user decision
         return options[show_tutorial]
 
 
@@ -124,18 +131,15 @@ class ShowTutorialHandler(AbstractHandler):
 
     def operate(self):
         """
-
-        Goes through all training points, the user is given the opportunity
-        to exit the training mode at any time.
-
+        Function iterates through the tutorials_step collection, displays the corresponding
+        training item and prompts the user to continue or stop.
         """
-
         for step in self.tutorial_steps:
-            if step not in self.language:
-                continue
+            # Receives yes/no translation for selected language
             options = self.language.get('agree_disagree')
-            message = self.language.get(step).format(options='/'.join(options.keys()))
 
+            # Requests to the user about his desire to continue training
+            message = self.language.get(step).format(options='/'.join(options.keys()))
             validator = ValueInValidator(options=list(options.keys()))
             further = self._validate_entered(message, validator)
 
@@ -144,53 +148,54 @@ class ShowTutorialHandler(AbstractHandler):
 
 
 class ChooseCommandHandler(AbstractHandler):
-    def __init__(self, language: dict[str, str], commands: dict[str, AbstractHandler]):
+    def __init__(self, language: dict[str, str], commands_dict: dict[str, AbstractHandler]):
         super().__init__(language)
-        self.commands = commands
+        self.commands = commands_dict
 
     def operate(self):
+        """Function offers the user a choice of handlers registered in the "commands" collection."""
         message = self.language.get('require_input').format(
             commands=', '.join(self.commands.keys())
         )
         validator = ValueInValidator(options=self.commands.keys())
         command = self._validate_entered(message, validator)
 
+        # Returns a reference to the handler class that needs to be launched
         return self.commands.get(command)
 
 
 class ShowStatisticHandler(AbstractHandler, PrettyPrintMixin):
-    def __init__(self, language: dict[str, str | dict], database_fields: dict[str, FieldAttrs]):
+    def __init__(self, language: dict[str, str | dict], fields: dict[str, FieldAttrs]):
         super().__init__(language)
-        self.database_fields = database_fields
+        self.database_fields = fields
 
     def operate(self):
         """
-
-        The function will request and display the page as requested by
-        the user until the 'exit' command is received.
-        The number of records displayed on an individual page is configured in
-        the paginate_by variable.
-
+        Function displays statistics to the user on his income/expenses.
+        The user can also get a list of database records filtered by category.
         """
         print(self.language.get('chosen_show_list'))
         df = pd.read_csv('database.csv', index_col='pk')
 
         if len(df) == 0:
             print(self.language.get('empty_table'))
-            return
+            raise ExitSignal
 
+        # Groups all records by income/expenses
         expense, income = df.groupby('type').amount.sum()
 
         print(self.language.get('statistic').format(
             summary=income - expense, income=income, expense=expense
         ))
 
+        # Prompts the user which transaction category to display
         validator = ValueInValidator(options=self.language.get('values_for_type'))
         message = self.language.get('filter_by_type').format(
             options=', '.join(self.language.get('values_for_type').values())
         )
         display_by_type = self._validate_entered(message, validator)
 
+        # The loop will run until the user enters "exit"
         while True:
             message_keys = {'income': 'income_message', 'expense': 'expense_message'}
             print(self.language.get(message_keys[display_by_type]))
@@ -207,34 +212,29 @@ class ShowStatisticHandler(AbstractHandler, PrettyPrintMixin):
 
 
 class AddNoteHandler(AbstractHandler, PrettyPrintMixin):
-    def __init__(self, language: dict[str, str], database_fields: dict[str, FieldAttrs]):
+    def __init__(self, language: dict[str, str], fields: dict[str, FieldAttrs]):
         super().__init__(language)
-        self.database_fields = database_fields
+        self.database_fields = fields
 
     def operate(self):
         """
-
-        Prompts the user for the value of all fields contained in
-        the database_field collection.
+        Prompts the user for the value of all fields contained in the database_field collection.
         Adds a new entry to the data file based on the received values.
-        For a new entry, the id is obtained by finding the number
-        of entries in the file.
-
+        For a new entry, the id is obtained by finding the number of entries in the file.
         """
         print(self.language.get('chosen_add_note'))
         entity = {}
 
         for field, field_attrs in self.database_fields.items():
-            message = self.language.get(
-                field_attrs.input_message
-            )
+            message = self.language.get(field_attrs.input_message)
 
+            # Since a field may not have a validator class, you must ensure that
+            # it exists before initializing a validator
             validator = field_attrs.validator_class
-            if validator:
-                validator = validator(
-                    self.language.get(field_attrs.validator_arg_code),
-                    err_code='input_error'
-                )
+            validator = validator(
+                self.language.get(field_attrs.validator_arg_code),
+                err_code='input_error'
+            ) if validator else None
 
             field_value = self._validate_entered(message, validator)
             entity[field] = field_value
@@ -242,11 +242,12 @@ class AddNoteHandler(AbstractHandler, PrettyPrintMixin):
         df = pd.read_csv('database.csv', index_col='pk')
         df.loc[len(df.index)] = entity.values()
 
+        # Displays the added entry
         print(self.language.get('note_add_success'))
-
         df.tail(1).apply(
             self.pprint, fields=self.database_fields, language=self.language, axis=1
         )
+
         df.to_csv('database.csv')
 
     @translate_dict
@@ -255,18 +256,28 @@ class AddNoteHandler(AbstractHandler, PrettyPrintMixin):
 
 
 class FindNotesHandler(AbstractHandler, PrettyPrintMixin):
-    def __init__(self, language: dict[str, str], database_fields: dict[str, FieldAttrs]):
+    def __init__(self, language: dict[str, str | dict], fields: dict[str, FieldAttrs]):
         super().__init__(language)
-        self.database_fields = database_fields
+        self.database_fields = fields
 
     def operate(self):
+        """
+        Creates a database query based on user selection.
+        After generating each request, the user will be shown all the filtered records from the database.
+        Next, the user is asked to create an additional query for the already filtered records.
+
+        The function returns a database object and a generated query, which is necessary for ChangeNotesHandler to work.
+        """
         print(self.language.get('chosen_find_notes'))
 
         queries = []
         df = pd.read_csv('database.csv', index_col='pk')
 
-        further = 'y'
-        while further == 'y':
+        # Receives yes/no translation for selected language
+        options = self.language.get('agree_disagree')
+
+        further = True
+        while further:
             queries.append(self._validate_entered_query())
             filtered_df = df.loc[df.query(f'({") & (".join(queries)})').index]
             if not len(filtered_df):
@@ -278,9 +289,10 @@ class FindNotesHandler(AbstractHandler, PrettyPrintMixin):
                 self.pprint, fields=self.database_fields, language=self.language, axis=1
             )
 
-            message = self.language.get('add_query')
-            validator = ValueInValidator(options=('y', 'n'))
-            further = self._validate_entered(message, validator)
+            # Requests to the user about his desire to add more queries
+            message = self.language.get('add_query').format(options='/'.join(options.keys()))
+            validator = ValueInValidator(options.keys())
+            further = options[self._validate_entered(message, validator)]
 
         return df, f'({") & (".join(queries)})'
 
@@ -290,14 +302,14 @@ class FindNotesHandler(AbstractHandler, PrettyPrintMixin):
 
     def _validate_entered_query(self):
         """
+        Prompts the user for 3 parameters:
+        1) Field by which filtering will occur
+        2) A logical operation performed on the field values
+        3) The value with which the field values will be compared
 
-        Calls '_get_query_obj' for 3 objects: filtered field,
-        filter operation and filter operation argument.
-
-        Returns query string.
-
+        After this, the function returns the completed query string
         """
-
+        # Gets a field to filter
         main_validator = ValueInValidator(
             options={k: self.language.get(k) for k in self.database_fields},
             err_code='first_arg_err'
@@ -308,8 +320,10 @@ class FindNotesHandler(AbstractHandler, PrettyPrintMixin):
             validator=main_validator
         )
 
+        # Specifies the arguments for the selected field
         field_attrs = self.database_fields[main_arg]
 
+        # Gets an operation type
         oper_validator = ValueInValidator(
             options=field_attrs.operations,
             err_code='operator_err'
@@ -320,6 +334,7 @@ class FindNotesHandler(AbstractHandler, PrettyPrintMixin):
             validator=oper_validator
         )
 
+        # Gets a filter value
         sub_validator = field_attrs.validator_class(
             self.language.get(field_attrs.validator_arg_code),
             err_code='input_error'
@@ -339,27 +354,32 @@ class FindNotesHandler(AbstractHandler, PrettyPrintMixin):
 
 class ChangeNotesHandler(FindNotesHandler):
     def operate(self):
+        """
+        Gets the fields to change and then the new values for the selected fields.
+        After this it overwrites the database.
+        """
+        # Gets the results of FindNotesHandler.
         df, query = super().operate()
 
-        new_fields = self.validate_change_input()
+        fields_to_change = self._get_fields_to_change()
+        new_fields = self._get_new_field_values(fields_to_change)
+
         df.loc[df.query(query).index, new_fields.keys()] = tuple(new_fields.values())
 
         df.to_csv('database.csv')
 
-    def validate_change_input(self):
+    def _get_fields_to_change(self) -> list[str]:
         """
-
-        Receives a raw string from the user, which should list all
-        the fields to be changed separated by spaces.
-        If at least one field is specified incorrectly, it requires
-        you to enter a new value. Next, for each selected field, it
-        prompts you to specify a new value.
-
+        Prompts the user for a field to change.
+        After this, it prompts you to enter a few more fields.
         """
-
         fields_to_change = set()
-        further = 'y'
-        while further == 'y':
+
+        # Receives yes/no translation for selected language
+        options = self.language.get('agree_disagree')
+        further = True
+
+        while further:
             validator = ValueInValidator(
                 options={k: self.language.get(k) for k in self.database_fields},
                 err_code='first_arg_err'
@@ -370,23 +390,36 @@ class ChangeNotesHandler(FindNotesHandler):
             field = self._validate_entered(message, validator)
             fields_to_change.add(field)
 
-            message = self.language.get('add_field')
-            validator = ValueInValidator(options=('y', 'n'))
-            further = self._validate_entered(message, validator)
+            # Requests to the user about his desire to continue adding fields to change list
+            message = self.language.get('add_field').format(options='/'.join(options.keys()))
+            validator = ValueInValidator(options.keys())
+            further = options[self._validate_entered(message, validator)]
 
+        return list(fields_to_change)
+
+    def _get_new_field_values(self, fields_to_change: list[str]) -> dict[str, str | int]:
+        """
+        For each field in the fields_to_change collection, gets a new value.
+
+        Returns a dictionary as: {field: new_field_value}
+        """
         result = {}
         for field in fields_to_change:
             field_attrs = self.database_fields.get(field)
 
+            # Since a field may not have a validator class, you must ensure that
+            # it exists before initializing a validator
             validator = field_attrs.validator_class
-            if validator:
-                validator = validator(
-                    self.language.get(field_attrs.validator_arg_code),
-                    err_code='input_error'
-                )
+            validator = validator(
+                self.language.get(field_attrs.validator_arg_code),
+                err_code='input_error'
+            ) if validator else None
+
             message = self.language.get(field_attrs.input_message)
             field_value = self._validate_entered(message, validator)
 
+            # Crutch for pandas. If you do not convert numeric values to Integer,
+            # Pandas will display a warning when saving
             if field_value.isdigit():
                 field_value = int(field_value)
             result[field] = field_value
@@ -394,6 +427,8 @@ class ChangeNotesHandler(FindNotesHandler):
         return result
 
 
+# All new commands are registered here.
+# The dictionary key is the command alias by which the value - handler can be called
 commands = {
     'show': ShowStatisticHandler,
     'add': AddNoteHandler,
