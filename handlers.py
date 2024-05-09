@@ -1,5 +1,6 @@
 from typing import Optional, TypeVar, NamedTuple, Type
 
+import pandas
 import pandas as pd
 
 from languages import get_lang_codes, registered_languages
@@ -129,7 +130,7 @@ class ShowTutorialHandler(AbstractHandler):
         super().__init__(language)
         self.tutorial_steps = tutorial_steps
 
-    def operate(self):
+    def operate(self) -> None:
         """
         Function iterates through the tutorials_step collection, displays the corresponding
         training item and prompts the user to continue or stop.
@@ -147,12 +148,15 @@ class ShowTutorialHandler(AbstractHandler):
                 break
 
 
+Handler = TypeVar('Handler', bound=AbstractHandler)
+
+
 class ChooseCommandHandler(AbstractHandler):
-    def __init__(self, language: dict[str, str], commands_dict: dict[str, AbstractHandler]):
+    def __init__(self, language: dict[str, str], commands_dict: dict[str, Handler]):
         super().__init__(language)
         self.commands = commands_dict
 
-    def operate(self):
+    def operate(self) -> Type[Handler]:
         """Function offers the user a choice of handlers registered in the "commands" collection."""
         message = self.language.get('require_input').format(
             commands=', '.join(self.commands.keys())
@@ -169,7 +173,7 @@ class ShowStatisticHandler(AbstractHandler, PrettyPrintMixin):
         super().__init__(language)
         self.database_fields = fields
 
-    def operate(self):
+    def operate(self) -> None:
         """
         Function displays statistics to the user on his income/expenses.
         The user can also get a list of database records filtered by category.
@@ -216,7 +220,7 @@ class AddNoteHandler(AbstractHandler, PrettyPrintMixin):
         super().__init__(language)
         self.database_fields = fields
 
-    def operate(self):
+    def operate(self) -> None:
         """
         Prompts the user for the value of all fields contained in the database_field collection.
         Adds a new entry to the data file based on the received values.
@@ -260,7 +264,7 @@ class FindNotesHandler(AbstractHandler, PrettyPrintMixin):
         super().__init__(language)
         self.database_fields = fields
 
-    def operate(self):
+    def operate(self) -> tuple[pandas.DataFrame, str]:
         """
         Creates a database query based on user selection.
         After generating each request, the user will be shown all the filtered records from the database.
@@ -300,7 +304,7 @@ class FindNotesHandler(AbstractHandler, PrettyPrintMixin):
     def _validate_entered(self, message: str, validator: Optional[callable] = None) -> str:
         return super()._validate_entered(message, validator)
 
-    def _validate_entered_query(self):
+    def _validate_entered_query(self) -> str:
         """
         Prompts the user for 3 parameters:
         1) Field by which filtering will occur
@@ -353,7 +357,7 @@ class FindNotesHandler(AbstractHandler, PrettyPrintMixin):
 
 
 class ChangeNotesHandler(FindNotesHandler):
-    def operate(self):
+    def operate(self) -> None:
         """
         Gets the fields to change and then the new values for the selected fields.
         After this it overwrites the database.

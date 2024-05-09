@@ -4,7 +4,7 @@ from languages import eng_lang
 from signals import ExitSignal
 
 
-def run(tutorial_steps):
+def run(tutorial_steps: tuple[str]):
     # Setting the interface language
     select_language_handler = SetLanguageHandler(eng_lang)
     language = select_language_handler.operate()
