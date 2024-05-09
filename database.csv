@@ -1,13 +1,15 @@
 pk,date,type,amount,descr
 0,2024-12-01,income,250,Salary
 1,2024-12-03,income,100,Birthday gift
-2,2024-12-04,Доход,13,Shop purchase
+2,2024-12-04,income,15,Привет
 3,2024-12-05,income,250,Salary
-4,2024-12-05,outcome,300,Bought a refrigerator
+4,2024-12-05,expense,300,Bought a refrigerator
 5,2024-05-06,income,200,test
 6,2024-05-07,income,700,Test24
 7,2024-12-10,income,250,test3
-8,2025-01-01,outcome,300,Taxes
+8,2025-01-01,expense,300,Taxes
 9,2024-12-07,income,600,Donate
 10,2024-01-01,income,400,GHbdt
 11,2023-10-01,income,39,На обед
+12,2021-01-01,expense,259,
+13,2024-01-01,income,489,Test1

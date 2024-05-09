@@ -11,6 +11,11 @@ pd.set_option('display.max_columns', None)
 
 
 class AbstractHandler(ABC):
+    """
+    Abstract handler class
+
+    Implements the abstract method "operate" and a protected method "_validate_entered"
+    """
     def __init__(self, language: dict[str, str]):
         self.language = language
 
@@ -18,13 +23,16 @@ class AbstractHandler(ABC):
     def operate(self):
         pass
 
-    def _validate_entered(self, message: str, validator: Optional[callable] = None) -> str:
+    def _validate_entered(self, message: str, validator: Optional[AbstractValidator] = None) -> str:
         """
+        Uses the resulting validator to validate user-supplied values.
+        Will require you to repeat the value entry until it passes validation.
 
-        Requires user to enter the correct command until it gets it.
+        If the validator has not been passed, it considers any entered value to be valid.
 
+        If the user enters "exit", it will throw an error "ExitSignal",
+        which will interrupt the input at any stage of the program
         """
-
         user_entered = input(message).strip()
 
         while validator and not validator.validate(user_entered) or user_entered == 'exit':
@@ -39,7 +47,7 @@ class AbstractHandler(ABC):
 class SetLanguageHandler(AbstractHandler):
     def operate(self):
         lang_codes = get_lang_codes()
-        message = self.language.get('select_language').format(options=lang_codes)
+        message = self.language.get('select_language').format(options=', '.join(lang_codes))
 
         validator = ValueInValidator(options=lang_codes)
         chosen_code = self._validate_entered(message, validator)
@@ -72,6 +80,8 @@ class ShowTutorialHandler(AbstractHandler):
         """
 
         for step in self.tutorial_steps:
+            if step not in self.language:
+                continue
             message = self.language.get(step)
             options = {'y': True, 'n': False}
 
@@ -118,10 +128,10 @@ class ShowStatisticHandler(AbstractHandler, PrettyPrintMixin):
             print(self.language.get('empty_table'))
             return
 
-        income, outcome = df.groupby('type').amount.sum()
+        expense, income = df.groupby('type').amount.sum()
 
         print(self.language.get('statistic').format(
-            summary=income - outcome, income=income, outcome=outcome
+            summary=income - expense, income=income, expense=expense
         ))
 
         validator = ValueInValidator(options=self.language.get('values_for_type'))
@@ -131,7 +141,7 @@ class ShowStatisticHandler(AbstractHandler, PrettyPrintMixin):
         display_by_type = self._validate_entered(message, validator)
 
         while True:
-            message_keys = {'income': 'income_message', 'outcome': 'outcome_message'}
+            message_keys = {'income': 'income_message', 'expense': 'expense_message'}
             print(self.language.get(message_keys[display_by_type]))
 
             df.loc[df.type == display_by_type].apply(
@@ -296,7 +306,7 @@ class ChangeNotesHandler(FindNotesHandler):
 
         """
 
-        fields_to_change = []
+        fields_to_change = set()
         further = 'y'
         while further == 'y':
             validator = ValueInValidator(
@@ -307,17 +317,25 @@ class ChangeNotesHandler(FindNotesHandler):
                 fields=', '.join([self.language.get(k) for k in self.database_fields])
             )
             field = self._validate_entered(message, validator)
-            fields_to_change.append(field)
+            fields_to_change.add(field)
 
-            message = self.language.get('add_query')
+            message = self.language.get('add_field')
             validator = ValueInValidator(options=('y', 'n'))
             further = self._validate_entered(message, validator)
 
         result = {}
         for field in fields_to_change:
-            field_value = input(self.language.get('change_field').format(
-                field_name=self.language.get(field)
-            ))
+            field_attrs = self.database_fields.get(field)
+
+            validator = field_attrs['validator_class']
+            if validator:
+                validator = validator(
+                    self.language.get(field_attrs['validator_arg_code']),
+                    err_code='input_error'
+                )
+            message = self.language.get(field_attrs['input_message'])
+            field_value = self._validate_entered(message, validator)
+
             if field_value.isdigit():
                 field_value = int(field_value)
             result[field] = field_value
@@ -325,43 +343,3 @@ class ChangeNotesHandler(FindNotesHandler):
         return result
 
 
-database_fields = {
-    'date': {
-        'operations': ('==', '>', '>=', '<', '<='),
-        'validator_class': RegExValidator,
-        'validator_arg_code': 'date_regex',
-        'input_message': 'date_input',
-        'query_form': '{main_arg}{operation}"{sub_arg}"',
-    },
-    'type': {
-        'operations': ('==',),
-        'validator_class': ValueInValidator,
-        'validator_arg_code': 'values_for_type',
-        'input_message': 'type_input',
-        'query_form': '{main_arg}{operation}"{sub_arg}"',
-    },
-    'amount': {
-        'operations': ('==', '>', '>=', '<', '<='),
-        'validator_class': TypeValidator,
-        'validator_arg_code': 'amount_type',
-        'input_message': 'amount_input',
-        'query_form': '{main_arg}{operation}{sub_arg}',
-    },
-    'descr': {
-        'operations': ('==',),
-        'validator_class': None,
-        'validator_arg_code': None,
-        'input_message': 'descr_input',
-        'query_form': '{main_arg}{operation}"{sub_arg}"',
-    },
-}
-
-# All commands specified in this collection become available to the user in the main menu
-commands = {
-    'help': ShowTutorialHandler,
-    'show': ShowStatisticHandler,
-    'add': AddNoteHandler,
-    'find': FindNotesHandler,
-    'change': ChangeNotesHandler,
-    # 'exit': exit_handler,
-}
