@@ -6,7 +6,7 @@ ru_lang = {
     'start': '\nДобро пожаловать в приложение "Личный финансовый кошелёк"!\n\n'
              'Перед тем, как начать, предлагаем пройти короткое обучение, в котором будет показано, как пользоваться '
              'программой.\n'
-             'Хотите пройти обучение? "y/n"\n ... ',
+             'Хотите пройти обучение? "{options}"\n ... ',
 
     # ---------------------------------------- Tutorial section ------------------------------------------------
     'short_description': '\nКраткое описание:\n\n'
@@ -23,7 +23,7 @@ ru_lang = {
 
                          'Далее следуют подробные инструкции по использованию каждой функции.\n\n'
 
-                         'Хотите продолжить? "y/n"\n ... ',
+                         'Хотите продолжить? "{options}"\n ... ',
 
     'show': '\nПоказать статистику:\n\n'
 
@@ -32,7 +32,7 @@ ru_lang = {
             'После этого вам будет предложено выбрать, какую категорию транзакций отобразить подробно.\n'
             'В зависимости от выбора, будут отображены все записи из категории "Доход" или "Расход".\n\n'
 
-            'Хотите продолжить? "y/n"\n ... ',
+            'Хотите продолжить? "{options}"\n ... ',
 
     'add': '\nДобавить запись:\n\n'
 
@@ -41,7 +41,7 @@ ru_lang = {
            'Для каждого поля вам будет указано, данные в каком формате от вас ожидает программа.\n'
            'После ввода всех требуемых значений, вам будет показана только что созданная запись.\n\n'
 
-           'Хотите продолжить? "y/n"\n ... ',
+           'Хотите продолжить? "{options}"\n ... ',
 
     'find': '\nНайти записи:\n\n'
 
@@ -55,7 +55,7 @@ ru_lang = {
             'по вашему запросу. После этого вам будет предложено добавить еще одно условие к запросу.\n'
             'Так вы cможете создавать сложные запросы с несколькими условиями.\n\n'
 
-            'Хотите продолжить? "y/n"\n ... ',
+            'Хотите продолжить? "{options}"\n ... ',
     'change': '\nИзменить записи:\n\n'
 
               'Чтобы изменить существующие записи в базе, вам следует выбрать опцию "change" в главном меню.\n'
@@ -91,13 +91,13 @@ ru_lang = {
     'chose_operator': 'Выберите действие над значением поля: "{options}"\n ... ',
     'operator_err': 'Вы выбрали недопустимый оператор, проверьте введенное значение!\n ... ',
     'chose_sub_arg': 'Выберите значение, по которому выбранное поле будет отфильтровано:\n ... ',
-    'add_query': 'Хотите добавить еще одно условие фильтрации? "y/n"\n ... ',
+    'add_query': 'Хотите добавить еще одно условие фильтрации? "{options}"\n ... ',
     'bad_query': 'По вашему запросу не найдено ни одной записи!',
     'n_notes_found': 'По вашему запросу найдено {number} записей:\n',
 
     'chosen_change_notes': '\n---------- ИЗМЕНЕНИЕ ЗАПИСЕЙ -----------',
     'choose_field_to_change': 'Выберите поле, которое хотите изменить: {fields}\n ... ',
-    'add_field': 'Хотите добавить в список для изменения еще поля?: "y/n"\n ... ',
+    'add_field': 'Хотите добавить в список для изменения еще поля?: "{options}"\n ... ',
     'unexpected_field': 'Одно или несколько из указанных полей не существует. Проверьте введенные значения! \n ... ',
     'change_field': 'Введите новое значение для поля "{field_name}"\n ... ',
 
@@ -116,6 +116,8 @@ ru_lang = {
 
     'descr': 'Описание',
     'descr_input': 'Введите описание к транзакции:\n ... ',
+
+    'agree_disagree': {'д': True, 'н': False},
 }
 
 eng_lang = {
@@ -125,7 +127,7 @@ eng_lang = {
     # ---------------------------------------- Initial message -------------------------------------------------
     'start': '\nWelcome to the Personal Financial Wallet application!\n\n'
              'Before you start, we suggest you complete a short training session that will show you how to use '
-             'a program.\n\nDo you want to get trained? "y/n" ... ',
+             'a program.\n\nDo you want to get trained? "{options}" ... ',
 
     # ---------------------------------------- Tutorial section ------------------------------------------------
     'short_description': '\nShort description:\n\n'
@@ -142,7 +144,7 @@ eng_lang = {
 
                          'Detailed instructions for using each function follow.\n\n'
 
-                         'Do you want to continue? "y/n"\n ... ',
+                         'Do you want to continue? "{options}"\n ... ',
 
     'show': '\nShow statistics:\n\n'
 
@@ -151,7 +153,7 @@ eng_lang = {
             'You will then be asked to select which category of transactions to display in detail.\n'
             'Depending on your selection, all entries from the "Income" or "Expense" categories will be displayed.\n\n'
 
-            'Do you want to continue? "y/n"\n ... ',
+            'Do you want to continue? "{options}"\n ... ',
 
     'add': '\nAdd a note:\n\n'
 
@@ -160,7 +162,7 @@ eng_lang = {
            'For each field you will be told in what format the program expects the data from you.\n'
            'Once you have entered all the required values, you will be shown the newly created entry.\n\n'
 
-           'Do you want to continue? "y/n"\n ... ',
+           'Do you want to continue? "{options}"\n ... ',
 
     'find': '\nFind transactions:\n\n'
 
@@ -174,7 +176,7 @@ eng_lang = {
             'at your request. You will then be prompted to add another condition to the request.\n'
             'This way you can create complex queries with multiple conditions.\n\n'
 
-            'Do you want to continue? "y/n"\n ... ',
+            'Do you want to continue? "{options}"\n ... ',
     'change': '\nEdit transactions:\n\n'
 
               'To change existing records in the database, you should select the "change" option in the main menu.\n'
@@ -210,13 +212,13 @@ eng_lang = {
     'chose_operator': 'Select action on field value: "{options}"\n ... ',
     'operator_err': 'You selected an invalid operator, check the entered value!\n ... ',
     'chose_sub_arg': 'Select the value by which the selected field will be filtered:\n ... ',
-    'add_query': 'Do you want to add another filter condition?? "y/n"\n ... ',
+    'add_query': 'Do you want to add another filter condition?? "{options}"\n ... ',
     'bad_query': 'No records were found for your request!',
     'n_notes_found': '{number} records found for your request:\n',
 
     'chosen_change_notes': '\n---------- CHANGING ENTRIES -----------',
     'choose_field_to_change': 'Select the field you want to change: {fields}\n ... ',
-    'add_field': 'Do you want to add more fields to the list to change?: "y/n"\n ... ',
+    'add_field': 'Do you want to add more fields to the list to change?: "{options}"\n ... ',
     'unexpected_field': 'One or more of the specified fields does not exist. Check the entered values! \n ... ',
     'change_field': 'Enter a new value for the field "{field_name}"\n ... ',
 
@@ -235,6 +237,8 @@ eng_lang = {
 
     'descr': 'Description',
     'descr_input': 'Enter a description for the transaction:\n ... ',
+
+    'agree_disagree': {'y': True, 'n': False},
 }
 
 # When adding a new language pack, you must register the new language here

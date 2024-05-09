@@ -1,22 +1,68 @@
-from typing import Optional
+from typing import Optional, TypeVar, NamedTuple, Type
 
 import pandas as pd
 
 from languages import get_lang_codes, registered_languages
-from mixins import PrettyPrintMixin, translate_dict
 from signals import ExitSignal
+from utils import PrettyPrintMixin, translate_dict
 from validators import *
 
 pd.set_option('display.max_columns', None)
 
+# Common class for all validators
+Validator = TypeVar('Validator', bound=AbstractValidator)
+
+
+class FieldAttrs(NamedTuple):
+    # Tuple of logical operations available on a field
+    operations: tuple[str]
+    # Reference to the Validator class for the field
+    validator_class: Type[Validator]
+    # Key to get the argument to initialize the validator
+    validator_arg_code: str
+    # Key for receiving the message that needs to be displayed when entering a field value
+    input_message: str
+    # Form for composing a query request when filtering
+    query_form: str
+
+
+# Database configuration
+database_fields = {
+    'date': FieldAttrs(
+        operations=('==', '>', '>=', '<', '<='),
+        validator_class=RegExValidator,
+        validator_arg_code='date_regex',
+        input_message='date_input',
+        query_form='{main_arg}{operation}"{sub_arg}"'
+    ),
+    'type': FieldAttrs(
+        operations=('==',),
+        validator_class=ValueInValidator,
+        validator_arg_code='values_for_type',
+        input_message='type_input',
+        query_form='{main_arg}{operation}"{sub_arg}"'
+    ),
+    'amount': FieldAttrs(
+        operations=('==', '>', '>=', '<', '<='),
+        validator_class=TypeValidator,
+        validator_arg_code='amount_type',
+        input_message='amount_input',
+        query_form='{main_arg}{operation}{sub_arg}'
+    ),
+    'descr': FieldAttrs(
+        operations=('==',),
+        validator_class=None,
+        validator_arg_code=None,
+        input_message='descr_input',
+        query_form='{main_arg}{operation}"{sub_arg}"'
+    ),
+
+}
+
 
 class AbstractHandler(ABC):
-    """
-    Abstract handler class
-
-    Implements the abstract method "operate" and a protected method "_validate_entered"
-    """
-    def __init__(self, language: dict[str, str]):
+    """Implements the abstract method "operate" and a protected method "_validate_entered"."""
+    def __init__(self, language: dict[str, str | dict]):
         self.language = language
 
     @abstractmethod
@@ -31,7 +77,7 @@ class AbstractHandler(ABC):
         If the validator has not been passed, it considers any entered value to be valid.
 
         If the user enters "exit", it will throw an error "ExitSignal",
-        which will interrupt the input at any stage of the program
+        which will interrupt the input at any stage of the program.
         """
         user_entered = input(message).strip()
 
@@ -45,20 +91,25 @@ class AbstractHandler(ABC):
 
 
 class SetLanguageHandler(AbstractHandler):
-    def operate(self):
+    """A handler class that sets the interface language."""
+    def operate(self) -> dict[str, object]:
+        # Gets a list of all registered language packs
         lang_codes = get_lang_codes()
-        message = self.language.get('select_language').format(options=', '.join(lang_codes))
 
+        # Offers the user a choice of which interface language to use
+        message = self.language.get('select_language').format(options=', '.join(lang_codes))
         validator = ValueInValidator(options=lang_codes)
         chosen_code = self._validate_entered(message, validator)
 
+        # Returns the language pack
         return registered_languages.get(chosen_code)
 
 
-class StartHandler(AbstractHandler):
+class WelcomeHandler(AbstractHandler):
+    """Welcomes the user and offers training"""
     def operate(self):
-        options = {'y': True, 'n': False}
-        message = self.language.get('start')
+        options = self.language.get('agree_disagree')
+        message = self.language.get('start').format(options='/'.join(options.keys()))
 
         validator = ValueInValidator(options=list(options.keys()))
         show_tutorial = self._validate_entered(message, validator)
@@ -67,7 +118,7 @@ class StartHandler(AbstractHandler):
 
 
 class ShowTutorialHandler(AbstractHandler):
-    def __init__(self, language: dict[str, str], tutorial_steps: tuple[str]):
+    def __init__(self, language: dict[str, str | dict], tutorial_steps: tuple[str]):
         super().__init__(language)
         self.tutorial_steps = tutorial_steps
 
@@ -82,8 +133,8 @@ class ShowTutorialHandler(AbstractHandler):
         for step in self.tutorial_steps:
             if step not in self.language:
                 continue
-            message = self.language.get(step)
-            options = {'y': True, 'n': False}
+            options = self.language.get('agree_disagree')
+            message = self.language.get(step).format(options='/'.join(options.keys()))
 
             validator = ValueInValidator(options=list(options.keys()))
             further = self._validate_entered(message, validator)
@@ -93,7 +144,7 @@ class ShowTutorialHandler(AbstractHandler):
 
 
 class ChooseCommandHandler(AbstractHandler):
-    def __init__(self, language: dict[str, str], commands: dict[str, callable]):
+    def __init__(self, language: dict[str, str], commands: dict[str, AbstractHandler]):
         super().__init__(language)
         self.commands = commands
 
@@ -108,7 +159,7 @@ class ChooseCommandHandler(AbstractHandler):
 
 
 class ShowStatisticHandler(AbstractHandler, PrettyPrintMixin):
-    def __init__(self, language: dict[str, str | dict], database_fields: dict[str, dict]):
+    def __init__(self, language: dict[str, str | dict], database_fields: dict[str, FieldAttrs]):
         super().__init__(language)
         self.database_fields = database_fields
 
@@ -156,7 +207,7 @@ class ShowStatisticHandler(AbstractHandler, PrettyPrintMixin):
 
 
 class AddNoteHandler(AbstractHandler, PrettyPrintMixin):
-    def __init__(self, language: dict[str, str], database_fields: dict[str, dict]):
+    def __init__(self, language: dict[str, str], database_fields: dict[str, FieldAttrs]):
         super().__init__(language)
         self.database_fields = database_fields
 
@@ -175,13 +226,13 @@ class AddNoteHandler(AbstractHandler, PrettyPrintMixin):
 
         for field, field_attrs in self.database_fields.items():
             message = self.language.get(
-                field_attrs['input_message']
+                field_attrs.input_message
             )
 
-            validator = field_attrs['validator_class']
+            validator = field_attrs.validator_class
             if validator:
                 validator = validator(
-                    self.language.get(field_attrs['validator_arg_code']),
+                    self.language.get(field_attrs.validator_arg_code),
                     err_code='input_error'
                 )
 
@@ -204,7 +255,7 @@ class AddNoteHandler(AbstractHandler, PrettyPrintMixin):
 
 
 class FindNotesHandler(AbstractHandler, PrettyPrintMixin):
-    def __init__(self, language: dict[str, str], database_fields: dict[str, dict]):
+    def __init__(self, language: dict[str, str], database_fields: dict[str, FieldAttrs]):
         super().__init__(language)
         self.database_fields = database_fields
 
@@ -260,26 +311,26 @@ class FindNotesHandler(AbstractHandler, PrettyPrintMixin):
         field_attrs = self.database_fields[main_arg]
 
         oper_validator = ValueInValidator(
-            options=field_attrs['operations'],
+            options=field_attrs.operations,
             err_code='operator_err'
         )
         operation = self._validate_entered(
             message=self.language.get('chose_operator').format(
-                options=', '.join(field_attrs['operations'])),
+                options=', '.join(field_attrs.operations)),
             validator=oper_validator
         )
 
-        sub_validator = field_attrs['validator_class'](
-            self.language.get(field_attrs['validator_arg_code']),
-            err_code=field_attrs['validator_arg_code']
-        ) if field_attrs['validator_class'] else None
+        sub_validator = field_attrs.validator_class(
+            self.language.get(field_attrs.validator_arg_code),
+            err_code='input_error'
+        ) if field_attrs.validator_class else None
 
         sub_arg = self._validate_entered(
             message=self.language.get('chose_sub_arg'),
             validator=sub_validator
         )
 
-        return self.database_fields[main_arg]['query_form'].format(
+        return self.database_fields[main_arg].query_form.format(
             main_arg=main_arg,
             operation=operation,
             sub_arg=sub_arg
@@ -327,13 +378,13 @@ class ChangeNotesHandler(FindNotesHandler):
         for field in fields_to_change:
             field_attrs = self.database_fields.get(field)
 
-            validator = field_attrs['validator_class']
+            validator = field_attrs.validator_class
             if validator:
                 validator = validator(
-                    self.language.get(field_attrs['validator_arg_code']),
+                    self.language.get(field_attrs.validator_arg_code),
                     err_code='input_error'
                 )
-            message = self.language.get(field_attrs['input_message'])
+            message = self.language.get(field_attrs.input_message)
             field_value = self._validate_entered(message, validator)
 
             if field_value.isdigit():
@@ -343,3 +394,9 @@ class ChangeNotesHandler(FindNotesHandler):
         return result
 
 
+commands = {
+    'show': ShowStatisticHandler,
+    'add': AddNoteHandler,
+    'find': FindNotesHandler,
+    'change': ChangeNotesHandler,
+}

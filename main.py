@@ -1,5 +1,5 @@
-from handlers import SetLanguageHandler, StartHandler, ShowTutorialHandler, ChooseCommandHandler
-from settings import database_fields, commands
+from handlers import SetLanguageHandler, WelcomeHandler, ShowTutorialHandler, ChooseCommandHandler, \
+    commands, database_fields
 from languages import eng_lang
 from signals import ExitSignal
 
@@ -9,7 +9,7 @@ def run(tutorial_steps):
     select_language_handler = SetLanguageHandler(eng_lang)
     language = select_language_handler.operate()
 
-    start_handler = StartHandler(language)
+    start_handler = WelcomeHandler(language)
     show_tutorial = start_handler.operate()
     if show_tutorial:  # Training is optional
         show_tutorial_handler = ShowTutorialHandler(language, tutorial_steps)

@@ -9,9 +9,9 @@ class PrettyPrintMixin:
         for field, field_attrs in fields.items():
             field_value = obj[field]
 
-            if isinstance(language.get(field_attrs['validator_arg_code']), dict):
+            if isinstance(language.get(field_attrs.validator_arg_code), dict):
                 field_value = language.get(
-                    field_attrs['validator_arg_code']
+                    field_attrs.validator_arg_code
                 )[field_value].capitalize()
 
             print(f"{language.get(field)}: {field_value}")
